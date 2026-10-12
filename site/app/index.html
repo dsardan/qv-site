@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.152</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.153</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.152";
+const QE_VERSION = "15.12.153";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -6107,6 +6107,32 @@ function macroRiskIn(events, horizonDays, country){
     nextInDays:hits.length?((hits[0].ts-now)/86400000):null };
 }
 /* ===== QEVXLog: dedicated Virtual-Exchange diagnostics log (device-local, ring buffer; never leaves the device unless the user copies it) ===== */
+// ── vc600: QEUSE — «счётчик нужности»: какие кнопки/экраны реально показываются и нажимаются. Только локально (localStorage), наружу ничего не уходит. Тексты: цифры → «#», тикеры → «тикер», пароли/значения полей не читаются.
+window.QEUSE=(function(){ var KEY="qe_use_v1", MAXI=700, KEEP=60, SEL="button,[role=button],[role=tab],a[href],summary,select,input[type=checkbox],input[type=radio],input[type=range]";
+  var D=null, dirty=false, tmr=null;
+  function day(t){ var d=new Date(t||Date.now()); return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2); }
+  function load(){ if(D) return D; try{ var o=JSON.parse(localStorage.getItem(KEY)||"null"); if(o&&o.v===1&&o.items) D=o; }catch(e){} if(!D) D={v:1,t0:Date.now(),items:{}}; return D; }
+  function save(){ if(!dirty||!D) return; dirty=false; try{ var lim=day(Date.now()-KEEP*864e5), n=0; for(var id in D.items){ var it=D.items[id]; for(var dd in it.s) if(dd<lim) delete it.s[dd]; for(var dc in it.c) if(dc<lim) delete it.c[dc]; if(!Object.keys(it.s).length&&!Object.keys(it.c).length) delete D.items[id]; } localStorage.setItem(KEY,JSON.stringify(D)); }catch(e){} }
+  function later(){ dirty=true; if(!tmr) tmr=setTimeout(function(){ tmr=null; save(); },2500); }
+  function grp(el){ var h=el.closest&&el.closest("[data-testid]"); var tid=h?(h.getAttribute("data-testid")||""):"";
+    if(tid){ if(/^ct/.test(tid)) return "ct"; if(/^tbrep/.test(tid)) return "tbrep"; if(/^tb/.test(tid)) return "tb"; if(/^scanrep/.test(tid)) return "scanrep"; if(/^net/.test(tid)) return "net"; if(/^alp/.test(tid)) return "alp"; if(/^inv|^open-invite/.test(tid)) return "inv"; return "x:"+tid.split("-")[0]; }
+    return (el.closest&&el.closest(".qe-modal-bg"))?"modal":"main"; }
+  function lab(el){ var tg=el.tagName, t="";
+    if(tg==="SELECT"||tg==="INPUT") t=el.getAttribute("data-qef")||el.getAttribute("aria-label")||el.getAttribute("name")||el.id||el.type||"";
+    else t=el.getAttribute("data-qef")||el.getAttribute("aria-label")||el.getAttribute("title")||el.innerText||el.textContent||"";
+    t=String(t).replace(/\s+/g," ").trim(); if(!t){ t=el.getAttribute("data-testid")||""; } if(!t) return "";
+    t=t.replace(/[▼▲▾▸●■✓⚡]/g," ").replace(/\s+(ВКЛ|ВЫКЛ|ON|OFF|פועל|כבוי)\s*$/i,"").replace(/\s+/g," ").trim(); if(!t) return ""; t=t.replace(/\d+([.,]\d+)?/g,"#"); if(/^[A-Z][A-Z#.\-]{0,9}$/.test(t)) return "тикер"; return t.slice(0,36); }
+  function ident(el){ try{ if(el.closest&&el.closest("[data-qef-skip]")) return null; if(el.tagName==="INPUT"&&el.type==="password") return null; var g=grp(el); var l=g==="inv"?(el.getAttribute("data-testid")||"inv"):lab(el); if(!l) return null; return {id:g+"|"+l,g:g,n:l}; }catch(e){ return null; } }
+  function touch(x,click){ var d=load(), td=day(), it=d.items[x.id]; if(!it){ if(Object.keys(d.items).length>=MAXI) return; it=d.items[x.id]={n:x.n,g:x.g,f:td,s:{},c:{}}; } it.s[td]=1; if(click) it.c[td]=(it.c[td]||0)+1; }
+  function scan(){ try{ if(typeof document==="undefined"||document.visibilityState==="hidden") return; var els=document.querySelectorAll(SEL); for(var i=0;i<els.length;i++){ var el=els[i]; if(!el.getClientRects||!el.getClientRects().length) continue; var x=ident(el); if(x) touch(x,false); } later(); }catch(e){} }
+  function onClick(ev){ try{ var el=ev.target&&ev.target.closest&&ev.target.closest(SEL); if(!el) return; var x=ident(el); if(x){ touch(x,true); later(); } }catch(e){} }
+  function report(win){ var d=load(), now=Date.now(), days=[], i; for(i=0;i<win;i++) days.push(day(now-i*864e5)); var obs={}, rows=[];
+    for(var id in d.items){ var it=d.items[id], sd=[], cd=[], clk=0; days.forEach(function(dd){ if(it.s[dd]){ sd.push(dd); obs[dd]=1; } if(it.c[dd]){ cd.push(dd); clk+=it.c[dd]; } }); if(sd.length||cd.length) rows.push({id:id,n:it.n,g:it.g,sd:sd,cd:cd,clk:clk,first:it.f}); }
+    return {t0:d.t0,win:win,obs:Object.keys(obs).length,rows:rows}; }
+  function reset(){ D={v:1,t0:Date.now(),items:{}}; dirty=true; save(); }
+  function start(){ try{ load(); document.addEventListener("click",onClick,true); setTimeout(scan,8000); setInterval(scan,30000); document.addEventListener("visibilitychange",function(){ if(document.visibilityState==="hidden") save(); }); window.addEventListener("pagehide",save); }catch(e){} }
+  start();
+  return {report:report,reset:reset,scan:scan,save:save,_raw:function(){ return load(); }}; })();
 window.QEVXLog=(function(){ var KEY="qe_vxlog_v1", MAX=500;
   function ts(){ var d=new Date(),p=function(n){return String(n).padStart(2,"0");}; return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds()); }
   function read(){ try{ return (localStorage.getItem(KEY)||"").split("\n").filter(Boolean); }catch(e){ return []; } }
@@ -15269,6 +15295,70 @@ function VxCtPanel(props){
         e("span",{style:{textAlign:"end"}},(r.s!=null?("$"+r.cur+" → $"+r.tgt+" · "):"")+tr("d_"+r.dec)))),
       e("div",{style:{fontSize:"10.8px",color:T.gray2,fontFamily:"monospace",marginTop:"8px",lineHeight:1.5}},tr("test"))));
 }
+function UseMeter(props){
+  const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const hist=props.hist||[]; const start=props.start||100000;
+  const [open,setOpen]=useState(false); const [cp,setCp]=useState(false); const [rs,setRs]=useState(0); const [,setN]=useState(0);
+  useEffect(()=>{ if(!open) return; try{ window.QEUSE.scan(); }catch(er){} const id=setInterval(()=>setN(x=>x+1),5000); return ()=>clearInterval(id); },[open]);
+  const X={
+    title:{ru:"📊 Нужность элементов приложения",he:"📊 נחיצות רכיבי האפליקציה",en:"📊 How needed each app element is"},
+    note:{ru:"Считает, какие кнопки и экраны реально показываются и нажимаются (последние 14 дней), и что дали торговые модули по журналу виртуальной биржи. Данные только на этом устройстве, наружу не уходят. Оценка 0–100 — эвристика: 65 % частота нажатий + 35 % число активных дней; для торговых модулей (Крипто-тренд, скальпинг, ИИ, ручные) оценка и вывод — только по результату сделок и только при ≥30 закрытых; нажатия для них не считаются мерой пользы.",he:"סופר אילו כפתורים ומסכים באמת מוצגים ונלחצים (14 ימים אחרונים) ומה נתנו מודולי המסחר לפי יומן הבורסה הווירטואלית. הנתונים רק במכשיר הזה. הציון 0–100 הוא היוריסטיקה: 65% תדירות לחיצות + 35% ימים פעילים; למודולי מסחר המסקנה לפי תוצאות עסקאות ורק מ-30 עסקאות סגורות.",en:"Counts which buttons and screens are actually shown and tapped (last 14 days) and what the trading modules produced per the virtual-exchange journal. Data stays on this device. The 0–100 score is a heuristic: 65% tap frequency + 35% active days; for trading modules the verdict uses trade results and only with ≥30 closed trades."},
+    sum:{ru:"Наблюдаю дней",he:"ימי מעקב",en:"Days observed"}, known:{ru:"элементов известно",he:"רכיבים ידועים",en:"known elements"}, used:{ru:"нажимались",he:"נלחצו",en:"tapped"}, never:{ru:"ни разу",he:"אף פעם",en:"never"},
+    shown:{ru:"показ",he:"הצגה",en:"shown"}, taps:{ru:"нажатий",he:"לחיצות",en:"taps"}, act:{ru:"активных дней",he:"ימים פעילים",en:"active days"}, d:{ru:"дн.",he:"ימים",en:"d"},
+    tr:{ru:"сделок",he:"עסקאות",en:"trades"}, cl:{ru:"закрыто",he:"סגורות",en:"closed"},
+    v_need:{ru:"нужен",he:"נחוץ",en:"needed"}, v_rare:{ru:"используется редко",he:"בשימוש נדיר",en:"rarely used"}, v_none:{ru:"не используется — кандидат на удаление",he:"לא בשימוש — מועמד להסרה",en:"unused — removal candidate"},
+    v_few:{ru:"мало данных",he:"מעט נתונים",en:"too little data"}, v_prof:{ru:"приносит прибыль",he:"רווחי",en:"profitable"}, v_loss:{ru:"убыточен — подумать о выключении",he:"מפסיד — לשקול כיבוי",en:"losing — consider turning off"}, v_small:{ru:"сделок мало, вывода по прибыли нет",he:"מעט עסקאות, אין מסקנה",en:"few trades, no profit verdict"}, v_nt:{ru:"сделок не было",he:"לא היו עסקאות",en:"no trades"},
+    other:{ru:"Остальные элементы",he:"שאר הרכיבים",en:"Other elements"}, top:{ru:"чаще всего нажимают",he:"הנלחצים ביותר",en:"most tapped"}, idle:{ru:"показываются, но не нажимались ни разу (≥7 дней наблюдения)",he:"מוצגים אך לא נלחצו (≥7 ימי מעקב)",en:"shown but never tapped (≥7 days observed)"}, wait:{ru:"список «не нажимались» появится после 7 дней наблюдения",he:"הרשימה תופיע אחרי 7 ימי מעקב",en:"the never-tapped list appears after 7 observed days"},
+    copy:{ru:"Копировать",he:"העתק",en:"Copy"}, copied:{ru:"Скопировано",he:"הועתק",en:"Copied"}, reset:{ru:"Сбросить счётчик",he:"אפס מונה",en:"Reset counters"}, sure:{ru:"Нажмите ещё раз для сброса",he:"לחץ שוב לאיפוס",en:"Tap again to reset"}
+  };
+  const tr=(k)=>(X[k]&&(X[k][LG]||X[k].ru))||k;
+  const FE=[
+    {k:"ct",ic:"📈",n:{ru:"Крипто-тренд (+ Kronos)",he:"טרנד קריפטו (+Kronos)",en:"Crypto trend (+ Kronos)"},out:h=>h.by==="ct"},
+    {k:"tb",ic:"⚡",n:{ru:"Скальпинг: монитор и настройки",he:"סקאלפינג: מוניטור והגדרות",en:"Scalping: monitor & settings"},out:h=>h.by==="ai"&&(h.scalp||/^scalp/.test(h.reason||""))},
+    {k:"tbrep",ic:"📋",n:{ru:"Отчёт по скальперам",he:"דוח סקאלפרים",en:"Scalper report"}},
+    {k:"scanrep",ic:"🧪",n:{ru:"Отчёт по сканерам",he:"דוח סורקים",en:"Scanner report"}},
+    {k:"net",ic:"🩺",n:{ru:"Проверка источников данных",he:"בדיקת מקורות נתונים",en:"Data-source check"}},
+    {k:"alp",ic:"🦙",n:{ru:"Alpaca (панель)",he:"Alpaca (פאנל)",en:"Alpaca panel"}},
+    {k:"inv",ic:"✉",n:{ru:"Приглашения",he:"הזמנות",en:"Invitations"}},
+    {k:"ai",ic:"🤖",n:{ru:"ИИ-трейдер (свинг), по сделкам",he:"טריידר AI (סווינג), לפי עסקאות",en:"AI trader (swing), by trades"},out:h=>h.by==="ai"&&!(h.scalp||/^scalp/.test(h.reason||"")),only:true},
+    {k:"you",ic:"👤",n:{ru:"Ручные сделки",he:"עסקאות ידניות",en:"Manual trades"},out:h=>h.by!=="ai"&&h.by!=="ct",only:true}];
+  let R=null; try{ R=window.QEUSE.report(14); }catch(er){ R={obs:0,rows:[]}; }
+  const obs=R.obs||0;
+  const calc=(f)=>{ const rows=R.rows.filter(r=>r.g===f.k); const sd={},cd={}; let clk=0; rows.forEach(r=>{ r.sd.forEach(d=>{sd[d]=1;}); r.cd.forEach(d=>{cd[d]=1;}); clk+=r.clk; });
+    const used=Object.keys(cd).length, seen=Object.keys(sd).length; const sc=Math.round(100*(0.65*(1-Math.exp(-clk/6))+0.35*Math.min(1,used/7)));
+    let o=null; if(f.out){ const all=hist.filter(f.out); const cl=all.filter(h=>h.net!=null); const net=cl.reduce((a,h)=>a+h.net,0); const w=cl.filter(h=>h.net>0).length; o={n:all.length,c:cl.length,net:net,win:cl.length?Math.round(w/cl.length*100):0}; }
+    let vk,col; const few=obs<7;
+    if(o&&o.c>=30){ vk=o.net>0?"v_prof":"v_loss"; col=o.net>0?T.green:T.red; }
+    else if(f.only||f.out){ vk=o&&o.n?"v_small":"v_nt"; col=T.gray1; }
+    else if(few){ vk="v_few"; col=T.gray1; }
+    else if(sc>=50){ vk="v_need"; col=T.green; } else if(sc>=15){ vk="v_rare"; col=T.gold; } else { vk="v_none"; col=T.red; }
+    let score=(f.only||f.out)?null:sc; if(o&&o.c>=30){ const x=o.net/(0.02*start); score=Math.round(50+50*Math.tanh(x)); }
+    return {f:f,seen:seen,clk:clk,used:used,sc:score,o:o,vk:vk,col:col,few:few}; };
+  const F=FE.map(calc);
+  const oth=R.rows.filter(r=>!FE.some(f=>f.k===r.g)); const topO=oth.slice().sort((a,b)=>b.clk-a.clk).filter(r=>r.clk>0).slice(0,8);
+  const idle=obs>=7?oth.filter(r=>r.clk===0&&r.sd.length>=7).slice(0,14):[];
+  const totalK=R.rows.length, usedK=R.rows.filter(r=>r.clk>0).length;
+  const money=(v)=>(v<0?"-":"+")+"$"+Math.abs(Math.round(v));
+  const line=(c)=>{ const p=[]; if(c.f.out) p.push(tr("tr")+" "+c.o.n+" · "+tr("cl")+" "+c.o.c+" · net "+money(c.o.net)+" · win "+c.o.win+"%"); if(!c.f.only) p.push(tr("shown")+" "+c.seen+tr("d")+" · "+tr("taps")+" "+c.clk+" · "+tr("act")+" "+c.used); return p.join("  |  "); };
+  const txt=()=>"QuantView "+(typeof QE_VERSION!=="undefined"?QE_VERSION:"")+" · "+tr("title")+"\n"+tr("sum")+": "+obs+" · "+totalK+" "+tr("known")+" · "+usedK+" "+tr("used")+"\n"+F.map(c=>c.f.ic+" "+(c.f.n[LG]||c.f.n.ru)+": "+(c.sc==null?"—":c.sc)+" · "+tr(c.vk)+(c.few&&!c.f.only&&c.vk==="v_few"?" ("+obs+"/7)":"")+"\n   "+line(c)).join("\n")+"\n"+tr("top")+": "+topO.map(r=>r.n+" ×"+r.clk).join("; ")+"\n"+tr("idle")+": "+idle.map(r=>r.n).join("; ");
+  const copy=()=>{ const t=txt(); const ok=()=>{ setCp(true); setTimeout(()=>setCp(false),2000); }; try{ navigator.clipboard.writeText(t).then(ok); }catch(er){ try{ const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); ok(); }catch(e2){} } };
+  const btn=(c)=>({background:T.bg2,border:`1px solid ${c}`,color:c===T.border?T.white:c,borderRadius:"9px",padding:"7px 11px",fontSize:"12px",fontFamily:"monospace",fontWeight:"800",cursor:"pointer"});
+  const doReset=()=>{ if(rs===0){ setRs(1); setTimeout(()=>setRs(0),4000); return; } try{ window.QEUSE.reset(); }catch(er){} setRs(0); };
+  return e("div",{"data-testid":"usemeter",style:{background:T.bg1,border:`1px solid ${T.border}`,borderRadius:"12px",padding:"10px 12px",marginBottom:"12px"}},
+    e("button",{onClick:()=>setOpen(!open),"data-testid":"use-toggle",style:{width:"100%",background:"transparent",border:"none",color:T.cyan,fontFamily:"monospace",fontWeight:"900",fontSize:"14px",textAlign:"start",padding:0,cursor:"pointer"}},(open?"▾ ":"▸ ")+tr("title")),
+    open&&e("div",{style:{marginTop:"8px"}},
+      e("div",{style:{fontSize:"10.8px",color:T.gray2,fontFamily:"monospace",lineHeight:1.5,marginBottom:"6px"}},tr("note")),
+      e("div",{"data-testid":"use-sum",style:{fontSize:"11.5px",color:T.gray1,fontFamily:"monospace",marginBottom:"6px"}},tr("sum")+": "+obs+" · "+totalK+" "+tr("known")+" · "+usedK+" "+tr("used")+" · "+(totalK-usedK)+" "+tr("never")),
+      F.map((c,i)=>e("div",{key:i,"data-testid":"use-"+c.f.k,style:{padding:"6px 0",borderTop:`1px solid ${T.border}`}},
+        e("div",{style:{display:"flex",justifyContent:"space-between",gap:"8px",fontSize:"12px",fontFamily:"monospace",fontWeight:"800",color:T.white}},e("span",null,c.f.ic+" "+(c.f.n[LG]||c.f.n.ru)),e("span",{style:{color:c.col}},c.sc==null?"—":c.sc)),
+        e("div",{style:{fontSize:"11px",fontFamily:"monospace",color:c.col,marginTop:"1px"}},tr(c.vk)+((c.vk==="v_few")?" ("+obs+"/7 "+tr("d")+")":"")),
+        e("div",{style:{fontSize:"10.6px",fontFamily:"monospace",color:T.gray2,marginTop:"1px"}},line(c)))),
+      e("div",{style:{fontSize:"12px",color:T.white,fontFamily:"monospace",fontWeight:"800",marginTop:"8px",paddingTop:"6px",borderTop:`1px solid ${T.border}`}},tr("other")),
+      e("div",{"data-testid":"use-top",style:{fontSize:"10.8px",color:T.gray1,fontFamily:"monospace",lineHeight:1.5}},tr("top")+": "+(topO.length?topO.map(r=>r.n+" ×"+r.clk).join("; "):"—")),
+      e("div",{"data-testid":"use-idle",style:{fontSize:"10.8px",color:T.gray2,fontFamily:"monospace",lineHeight:1.5,marginTop:"3px"}},obs>=7?(tr("idle")+": "+(idle.length?idle.map(r=>r.n).join("; "):"—")):tr("wait")),
+      e("div",{style:{display:"flex",gap:"8px",flexWrap:"wrap",marginTop:"8px"}},
+        e("button",{onClick:copy,"data-testid":"use-copy",style:btn(T.cyan)},cp?("✓ "+tr("copied")):tr("copy")),
+        e("button",{onClick:doReset,"data-testid":"use-reset",style:btn(rs?T.red:T.border)},rs?tr("sure"):tr("reset")))));
+}
 function VxNetCheck(props){
   const e=React.createElement; const T=props.T; const LG=props.LANG||"ru";
   const X={
@@ -21785,6 +21875,7 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
               e(VxCtPanel,{T:T,LANG:LANG,ui:ctUi,cfg:ctCfg,onCfg:_setCt,onEval:()=>_ctEval(true)}),
               e(VxAlpPanel,{T:T,LANG:LANG}),
               e(VxNetCheck,{T:T,LANG:LANG}),
+              e(UseMeter,{T:T,LANG:LANG,hist:(vxAcct&&vxAcct.history)||[],start:(vxAcct&&vxAcct.start)||100000}),
               e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}},
                 (window.__vxWant=_vxWantTk(),null),
                 e("div",{style:{fontSize:"12.8px",color:T.gray1,fontFamily:"monospace",fontWeight:"700",letterSpacing:"0.5px"}},t("vx_positions")),
