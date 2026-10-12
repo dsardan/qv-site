@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.142</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.143</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.142";
+const QE_VERSION = "15.12.143";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -15103,6 +15103,65 @@ function VxAlpPanel(props){
         e("button",{onClick:()=>{ QEAlp.clearKeys(); setK(""); setSc(""); },"data-testid":"alpdel",style:{background:`${T.red}18`,border:`1.5px solid ${T.red}`,color:T.red,borderRadius:"9px",padding:"8px 12px",fontSize:"12px",fontFamily:"monospace",fontWeight:"800",cursor:"pointer"}},tr("del"))),
       e("div",{style:{fontSize:"10.8px",color:T.gray2,fontFamily:"monospace",lineHeight:1.5}},tr("how"))));
 }
+/* vc590: one-tap data-source check (relay, Yahoo, Stooq, Binance REST/WS, engine quotes, Alpaca, scalper state) with a plain-language verdict. */
+function VxNetCheck(props){
+  const e=React.createElement; const T=props.T; const LG=props.LANG||"ru";
+  const X={
+    btn:{ru:"🩺 Проверить источники данных",he:"🩺 בדיקת מקורות נתונים",en:"🩺 Check data sources"}, run:{ru:"проверяю…",he:"בודק…",en:"checking…"},
+    copy:{ru:"Скопировать отчёт",he:"העתק דוח",en:"Copy report"}, copied:{ru:"скопировано",he:"הועתק",en:"copied"},
+    hint:{ru:"Показывает, какой источник цен не отвечает — от этого зависят сканеры и скальпинг.",he:"מראה איזה מקור מחירים לא עונה — הסורקים והסקאלפינג תלויים בזה.",en:"Shows which price source is not answering — scanners and scalping depend on it."},
+    verdict:{ru:"Вывод",he:"מסקנה",en:"Verdict"},
+    v_ok:{ru:"Все основные источники отвечают.",he:"כל המקורות העיקריים עונים.",en:"All main sources respond."},
+    v_stk:{ru:"Акции: НЕТ данных (реле и прямой доступ к Yahoo не работают) — сканеры акций и скальпинг акций не могут работать. Проверьте реле (Cloudflare → qv-site) и адрес реле в настройках.",he:"מניות: אין נתונים (הממסר וגישה ישירה ל-Yahoo לא עובדים) — סורקי מניות וסקאלפינג מניות לא יכולים לעבוד. בדקו את הממסר (Cloudflare ← qv-site) ואת כתובת הממסר בהגדרות.",en:"Stocks: NO data (relay and direct Yahoo both fail) — stock scanners and stock scalping cannot work. Check the relay (Cloudflare → qv-site) and the relay address in settings."},
+    v_crp:{ru:"Крипто: Binance недоступен (REST и поток не отвечают) — цены идут из Yahoo с задержкой около минуты, для скальпинга это не годится: сигналов не будет. Возможна блокировка Binance у провайдера/VPN; при рабочем реле поток идёт через него.",he:"קריפטו: Binance לא זמין (REST והזרם לא עונים) — המחירים מ-Yahoo בעיכוב של כדקה, לא מתאים לסקאלפינג: לא יהיו אותות. ייתכן חסימה אצל הספק/VPN; כשהממסר עובד הזרם עובר דרכו.",en:"Crypto: Binance is unreachable (REST and stream both fail) — prices fall back to Yahoo with about a minute of delay, which is useless for scalping: no signals. Binance may be blocked by the provider/VPN; with a working relay the stream goes through it."},
+    v_eng:{ru:"Источники отвечают, но движок приложения не получил цену — перезапустите приложение и повторите проверку.",he:"המקורות עונים אך מנוע האפליקציה לא קיבל מחיר — הפעילו מחדש ונסו שוב.",en:"Sources respond but the app engine got no price — restart the app and re-run the check."},
+    v_off:{ru:"Скальпинг выключен вами — сканеры скальпинга не запускаются.",he:"הסקאלפינג כבוי על ידך — סורקי הסקאלפינג לא פועלים.",en:"Scalping is switched off by you — the scalping scanners do not run."},
+    v_cl:{ru:"Сессия США сейчас закрыта — акции ждут открытия (крипта работает круглосуточно).",he:"המסחר בארה״ב סגור כעת — מניות ממתינות לפתיחה (קריפטו פועל 24/7).",en:"The US session is closed right now — stocks wait for the open (crypto runs 24/7)."}
+  };
+  const tr=(k)=>(X[k]&&(X[k][LG]||X[k].ru))||k;
+  const [rows,setRows]=React.useState(null); const [busy,setBusy]=React.useState(false); const [cp,setCp]=React.useState(false); const [vd,setVd]=React.useState([]);
+  const relay=()=>{ let b=""; try{ b=(localStorage.getItem("qe_relay")||"").trim(); }catch(er){} return (b||window.QV_RELAY_DEFAULT||"").replace(/\/+$/,""); };
+  const tm=async(name,fn,ms)=>{ const t0=Date.now(); try{ const r=await Promise.race([fn(),new Promise((_,rj)=>setTimeout(()=>rj(new Error("timeout "+(ms||7000)+"ms")),ms||7000))]); return {name:name,ok:!!(r&&r.ok),ms:Date.now()-t0,info:(r&&r.info)||""}; }catch(er){ return {name:name,ok:false,ms:Date.now()-t0,info:String((er&&er.message)||er).slice(0,70)}; } };
+  const get=async(u,json)=>{ const c=new AbortController(); const id=setTimeout(()=>c.abort(),6500); try{ const r=await fetch(u,{signal:c.signal,headers:{"Accept":"application/json"}}); const tx=await r.text(); let j=null; if(json){ try{ j=JSON.parse(tx); }catch(er){} } return {st:r.status,tx:tx,j:j}; } finally{ clearTimeout(id); } };
+  const wsTest=(u,sub)=>new Promise((res,rj)=>{ let w; let got=false; const id=setTimeout(()=>{ try{ w&&w.close(); }catch(er){} rj(new Error(got?"no ticks":"no connection")); },6500); try{ w=new WebSocket(u); }catch(er){ clearTimeout(id); rj(er); return; }
+      w.onopen=()=>{ got=true; try{ w.send(JSON.stringify({method:"SUBSCRIBE",params:[sub],id:1})); }catch(er){} }; w.onmessage=(ev)=>{ try{ const m=JSON.parse(ev.data); if(m&&(m.p||m.e==="trade")){ clearTimeout(id); try{ w.close(); }catch(er){} res({ok:true,info:"tick "+m.p}); } }catch(er){} }; w.onerror=()=>{}; w.onclose=()=>{}; });
+  const run=async()=>{ if(busy) return; setBusy(true); setRows(null); setVd([]); const rb=relay(); const ya="https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=1d&interval=5m"; const bn="https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT";
+    const J=[
+      ["relay /health",async()=>{ if(!rb) return {ok:false,info:"no relay address"}; const r=await get(rb+"/health",true); return {ok:!!(r.j&&r.j.ok),info:r.j&&r.j.v?("v"+r.j.v):("HTTP "+r.st)}; }],
+      ["Yahoo via relay",async()=>{ if(!rb) return {ok:false,info:"no relay"}; const r=await get(rb+"/?url="+encodeURIComponent(ya),true); const ok=!!(r.j&&r.j.chart&&r.j.chart.result); return {ok:ok,info:ok?"AAPL ok":("HTTP "+r.st)}; }],
+      ["Yahoo direct",async()=>{ const r=await get(ya,true); const ok=!!(r.j&&r.j.chart&&r.j.chart.result); return {ok:ok,info:ok?"AAPL ok":("HTTP "+r.st)}; }],
+      ["Stooq direct",async()=>{ const r=await get("https://stooq.com/q/d/l/?s=aapl.us&i=d"); return {ok:r.st===200&&/Date,Open/i.test(r.tx),info:"HTTP "+r.st}; }],
+      ["Binance REST direct",async()=>{ const r=await get(bn,true); return {ok:!!(r.j&&+r.j.price>0),info:r.j&&r.j.price?("BTC "+r.j.price):("HTTP "+r.st)}; }],
+      ["Binance REST via relay",async()=>{ if(!rb) return {ok:false,info:"no relay"}; const r=await get(rb+"/?url="+encodeURIComponent(bn),true); return {ok:!!(r.j&&+r.j.price>0),info:r.j&&r.j.price?("BTC "+r.j.price):("HTTP "+r.st)}; }],
+      ["Binance stream direct",()=>wsTest("wss://data-stream.binance.vision/ws","btcusdt@trade"),8000],
+      ["Binance stream via relay",async()=>{ if(!rb) return {ok:false,info:"no relay"}; return wsTest(rb.replace(/^http/,"ws")+"/ws/binance","btcusdt@trade"); },8000],
+      ["App engine: AAPL",async()=>{ const q=await window.EWEngine.fetchQuote("AAPL",{force:true}); return {ok:!!(q&&q.price>0),info:q&&q.price?("$"+q.price+(q.src?" "+q.src:"")):"no price"}; },9000],
+      ["App engine: BTC-USD",async()=>{ const q=await window.EWEngine.fetchQuote("BTC-USD",{force:true}); return {ok:!!(q&&q.price>0),info:q&&q.price?("$"+q.price+(q.src?" "+q.src:"")):"no price"}; },9000]
+    ];
+    const out=[]; for(let i=0;i<J.length;i++){ out.push(await tm(J[i][0],J[i][1],J[i][2])); setRows(out.slice()); }
+    const g=(n)=>{ const r=out.find(x=>x.name===n); return !!(r&&r.ok); };
+    const al=(function(){ try{ return window.QEAlp?window.QEAlp.status():null; }catch(er){ return null; } })();
+    out.push({name:"Alpaca stream",ok:!!(al&&al.st==="ok"),ms:0,info:al?(al.st+(al.err?" "+al.err:"")+" · ticks "+al.ticks):"-",skip:!(al&&al.st!=="off")});
+    let on=true, usOpen=true; try{ on=localStorage.getItem("qe_vx_scalp")!=="0"; }catch(er){} try{ usOpen=window.QEHours.isOpen("US"); }catch(er){}
+    out.push({name:"Scalping switch",ok:on,ms:0,info:on?"on":"off (by you)"}); out.push({name:"US session",ok:usOpen,ms:0,info:usOpen?"open":"closed",skip:!usOpen});
+    setRows(out);
+    const v=[]; const stkOk=g("Yahoo via relay")||g("Yahoo direct")||g("App engine: AAPL"); const crpOk=g("Binance REST direct")||g("Binance REST via relay")||g("Binance stream direct")||g("Binance stream via relay");
+    if(!stkOk&&!g("Stooq direct")) v.push("v_stk"); else if(!stkOk) v.push("v_stk");
+    if(!crpOk) v.push("v_crp");
+    if((stkOk&&!g("App engine: AAPL"))||(crpOk&&!g("App engine: BTC-USD"))) v.push("v_eng");
+    if(!on) v.push("v_off"); if(!usOpen) v.push("v_cl"); if(!v.length) v.push("v_ok");
+    setVd(v); setBusy(false); };
+  const txt=()=>(rows||[]).map(r=>(r.skip?"– ":(r.ok?"✓ ":"✗ "))+r.name+" · "+r.ms+"ms · "+r.info).join("\n")+"\n"+vd.map(k=>tr(k)).join("\n");
+  const row=(r,i)=>e("div",{key:i,style:{display:"flex",gap:"8px",fontFamily:"monospace",fontSize:"11.5px",lineHeight:1.5,color:r.skip?T.gray2:(r.ok?T.green:T.red)}},
+    e("span",{style:{flex:"0 0 14px"}},r.skip?"–":(r.ok?"✓":"✗")), e("span",{style:{flex:"1 1 auto",minWidth:0}},r.name), e("span",{style:{flex:"0 0 auto",color:T.gray1,textAlign:"right"}},(r.ms?r.ms+"ms · ":"")+r.info));
+  return e("div",{"data-testid":"netchk",style:{background:T.bg1,border:`1px solid ${T.border}`,borderRadius:"12px",padding:"10px 12px",marginBottom:"12px"}},
+    e("div",{style:{display:"flex",gap:"8px",flexWrap:"wrap",alignItems:"center"}},
+      e("button",{onClick:run,disabled:busy,"data-testid":"netrun",style:{background:`${T.cyan}18`,border:`1.5px solid ${T.cyan}`,color:T.cyan,borderRadius:"9px",padding:"8px 12px",fontSize:"12px",fontFamily:"monospace",fontWeight:"800",cursor:busy?"default":"pointer"}},busy?tr("run"):tr("btn")),
+      rows&&!busy&&e("button",{onClick:()=>{ try{ navigator.clipboard.writeText(txt()); setCp(true); setTimeout(()=>setCp(false),1500); }catch(er){} },style:{background:"transparent",border:`1px solid ${T.border}`,color:T.gray1,borderRadius:"9px",padding:"7px 10px",fontSize:"11.5px",fontFamily:"monospace",cursor:"pointer"}},cp?tr("copied"):tr("copy"))),
+    !rows&&e("div",{style:{fontSize:"10.8px",color:T.gray2,fontFamily:"monospace",marginTop:"6px",lineHeight:1.5}},tr("hint")),
+    rows&&e("div",{"data-testid":"netres",style:{marginTop:"8px"}},rows.map(row)),
+    vd.length>0&&e("div",{"data-testid":"netverdict",style:{marginTop:"8px",paddingTop:"8px",borderTop:`1px solid ${T.border}`,fontSize:"12px",fontFamily:"monospace",lineHeight:1.5,color:T.white}},e("b",null,tr("verdict")+": "),vd.map((k,i)=>e("div",{key:i,style:{marginTop:i?"4px":0}},tr(k)))));
+}
 function VxScalpMon(props){
   const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const tb=props.tb||{}; const mk=props.mk||{}; const on=!!props.scalpOn;
   const [,setN]=useState(0); useEffect(()=>{ const id=setInterval(()=>setN(x=>x+1),1000); return ()=>clearInterval(id); },[]);
@@ -21438,6 +21497,7 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
                 onMaster:()=>{ const v=!scalpOn; setScalpOnS(v); try{ localStorage.setItem("qe_vx_scalp",v?"1":"0"); }catch(x){} try{ window.QEVXLog.log("INFO","tb.master",{on:v}); }catch(x){} setTimeout(()=>{ try{ _tbScan(); }catch(x){} },50); },
                 onMk:_setTbMk}),
               e(VxAlpPanel,{T:T,LANG:LANG}),
+              e(VxNetCheck,{T:T,LANG:LANG}),
               e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}},
                 (window.__vxWant=_vxWantTk(),null),
                 e("div",{style:{fontSize:"12.8px",color:T.gray1,fontFamily:"monospace",fontWeight:"700",letterSpacing:"0.5px"}},t("vx_positions")),
