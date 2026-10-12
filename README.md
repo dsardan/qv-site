@@ -15,6 +15,6 @@ Caveat: Binance may still refuse some Cloudflare egress regions (HTTP 451); the 
 
 ## Website (v2.1)
 `site/` is served by the same Worker on every host except `relay.*` (static assets binding `ASSETS`, `run_worker_first`):
-`/` landing (ru/he/en), `/me/` author, `/privacy/`, `/app/` web version of QuantView, `/download/quantview.apk`.
+`/` landing (ru/he/en), `/me/` author, `/privacy/`, `/app/` web version of QuantView.
 Custom domains to attach to the Worker: `futuretrainingnow.com` (site) and `relay.futuretrainingnow.com` (relay).
-Update the APK/web app: copy the new files into `site/download/` and `site/app/`, bump `QV_META` and the SHA-256 in `site/index.html`.
+Update the web app: copy the new files into `site/app/`. The APK is intentionally NOT published on the site.
