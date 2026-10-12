@@ -46,6 +46,19 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 .qe-modal-bg{animation:qe-bg-in .16s ease-out both}
 .qe-modal button:focus-visible,.qe-menu button:focus-visible{outline:2px solid #2bd9f2;outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.qe-modal,.qe-modal-bg{animation:none}}
+/* ── DESKTOP (vc584): on wide screens (web version in a browser, tablets) scale the whole UI and use the width. Phones (<1100px) are untouched. ── */
+@media (min-width:1100px){
+  html{zoom:1.2}
+  .qe-bnav{left:50%!important;right:auto!important;width:min(620px,92%)!important;transform:translateX(-50%);bottom:10px!important;border:1px solid rgba(127,127,127,.28)!important;border-radius:16px!important;overflow:hidden}
+  .qe-sbody{max-width:720px!important}
+  .qe-fbody{max-width:780px!important}
+  .qe-fbody [style*="max-width: 360px"]{max-width:100%!important}
+  .qe-relaybar{max-width:860px!important;justify-content:center}
+  body{padding-bottom:84px}
+}
+@media (min-width:1500px){ html{zoom:1.4} }
+@media (min-width:1900px){ html{zoom:1.6} .qe-fbody{max-width:860px!important} }
+@media (min-width:2500px){ html{zoom:2.1} }
 </style></head><body>
 <div id="splash">
 <div class="sp-aura sp-a1"></div>
@@ -151,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.135</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.137</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -543,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.135";
+const QE_VERSION = "15.12.137";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -14932,6 +14945,80 @@ function AnalystResearch(props){
   kids.push(e(VxTip,{key:"note",T:T,txt:t("ar_note")}));
   return box(kids);
 }
+// ── INVITATIONS (vc583): create / share / revoke invite links to the web version.
+// The server (Cloudflare Worker) stores only: random id, YOUR label, expiry, use counter. Nothing about invitees.
+// The admin key stays on this device only (localStorage qe_inv_key; deliberately NOT part of backups).
+function InvitePanel(props){
+  const e=React.createElement; const T=props.T; const LG=props.LANG||"ru";
+  const X={
+    key:{ru:"Ключ владельца (ADMIN_KEY)",he:"מפתח בעלים (ADMIN_KEY)",en:"Owner key (ADMIN_KEY)"},
+    keyh:{ru:"Задаётся один раз в Cloudflare: Workers → qv-site → Settings → Variables and Secrets. Хранится только на этом устройстве.",he:"מוגדר פעם אחת ב-Cloudflare: Workers → qv-site → Settings → Variables and Secrets. נשמר רק במכשיר הזה.",en:"Set once in Cloudflare: Workers → qv-site → Settings → Variables and Secrets. Stored on this device only."},
+    label:{ru:"Для кого (пометка только для вас)",he:"עבור מי (תווית רק בשבילך)",en:"For whom (label, only for you)"},
+    days:{ru:"Срок",he:"תוקף",en:"Valid"}, max:{ru:"Входов",he:"כניסות",en:"Uses"}, d:{ru:"дн.",he:"ימים",en:"days"},
+    create:{ru:"Создать приглашение",he:"צור הזמנה",en:"Create invite"}, copy:{ru:"Копировать",he:"העתק",en:"Copy"}, share:{ru:"Отправить",he:"שתף",en:"Share"},
+    copied:{ru:"Скопировано",he:"הועתק",en:"Copied"}, list:{ru:"Выданные приглашения",he:"הזמנות שנוצרו",en:"Issued invitations"},
+    none:{ru:"Пока нет приглашений",he:"אין הזמנות עדיין",en:"No invitations yet"}, revoke:{ru:"Отозвать",he:"בטל",en:"Revoke"},
+    used:{ru:"использовано",he:"נוצל",en:"used"}, until:{ru:"до",he:"עד",en:"until"}, refresh:{ru:"Обновить",he:"רענן",en:"Refresh"},
+    e401:{ru:"Неверный ключ",he:"מפתח שגוי",en:"Wrong key"}, e503:{ru:"Ключ ещё не задан на сервере (ADMIN_KEY)",he:"המפתח עוד לא הוגדר בשרת (ADMIN_KEY)",en:"The key is not set on the server yet (ADMIN_KEY)"},
+    enet:{ru:"Нет связи с сервером",he:"אין תקשורת עם השרת",en:"Cannot reach the server"}, need:{ru:"Введите ключ",he:"הזן מפתח",en:"Enter the key"},
+    msg:{ru:"Приглашение в QuantView (веб-версия). Откройте ссылку:",he:"הזמנה ל-QuantView (גרסת ווב). פתחו את הקישור:",en:"Invitation to QuantView (web app). Open the link:"}
+  };
+  const tr=(k)=>(X[k]&&(X[k][LG]||X[k].ru))||k;
+  const ls=(k,v)=>{ try{ if(v===undefined) return localStorage.getItem(k)||""; if(v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(er){} return ""; };
+  const [key,setKey]=useState(()=>ls("qe_inv_key"));
+  const [label,setLabel]=useState(""); const [days,setDays]=useState(30); const [max,setMax]=useState(3);
+  const [items,setItems]=useState(null); const [msg,setMsg]=useState(""); const [busy,setBusy]=useState(false);
+  const [link,setLink]=useState("");
+  const base=()=>String((props.base&&props.base())||"").replace(/\/+$/,"");
+  const call=(method,path,body)=>{
+    const k=(key||"").trim(); if(!k){ setMsg(tr("need")); return Promise.reject(new Error("nokey")); }
+    ls("qe_inv_key",k);
+    return fetch(base()+path,{method,cache:"no-store",headers:{"Authorization":"Bearer "+k,"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined})
+      .then(r=>r.json().catch(()=>({})).then(j=>{ if(r.status===401) throw new Error("e401"); if(r.status===503) throw new Error("e503"); if(!r.ok||j.ok===false) throw new Error("enet"); return j; }),()=>{ throw new Error("enet"); });
+  };
+  const fail=(er)=>{ const m=String(er&&er.message||""); if(m!=="nokey") setMsg(X[m]?tr(m):tr("enet")); setBusy(false); };
+  const load=()=>{ setBusy(true); setMsg(""); call("GET","/api/invites").then(j=>{ setItems(j.items||[]); setBusy(false); }).catch(fail); };
+  useEffect(()=>{ if((key||"").trim()) load(); },[]);
+  const create=()=>{ setBusy(true); setMsg(""); setLink("");
+    call("POST","/api/invite",{label:label.trim(),days:days,max:max}).then(j=>{ setLink(j.url||""); setLabel(""); return call("GET","/api/invites"); }).then(j=>{ setItems(j.items||[]); setBusy(false); }).catch(fail); };
+  const revoke=(id)=>{ setBusy(true); call("DELETE","/api/invite/"+id).then(()=>call("GET","/api/invites")).then(j=>{ setItems(j.items||[]); setBusy(false); }).catch(fail); };
+  const copy=(u)=>{ const done=()=>setMsg(tr("copied"));
+    try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(u).then(done,()=>{}); return; } }catch(er){}
+    try{ const ta=document.createElement("textarea"); ta.value=u; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); done(); }catch(er){} };
+  const share=(u)=>{ try{ if(navigator.share){ navigator.share({text:tr("msg")+" "+u}).catch(()=>{}); return; } }catch(er){} copy(u); };
+  const inp={width:"100%",boxSizing:"border-box",background:T.bg2,border:`1px solid ${T.border}`,borderRadius:"8px",padding:"8px 10px",color:T.white,fontSize:"12px",fontFamily:"monospace",outline:"none"};
+  const btn=(c)=>({background:T.bg2,border:`1px solid ${c}`,color:c,borderRadius:"8px",padding:"8px 12px",fontSize:"11px",fontFamily:"monospace",fontWeight:"700",cursor:"pointer"});
+  const lab={fontSize:"10px",color:T.gray2,fontFamily:"monospace",margin:"10px 0 4px"};
+  const sel=(val,set,opts,suf)=>e("select",{value:val,onChange:ev=>set(+ev.target.value),style:{...inp,width:"auto",minWidth:"84px"}},opts.map(o=>e("option",{key:o,value:o},o+(suf?" "+suf:""))));
+  const fmt=(ts)=>{ try{ return new Date(ts).toLocaleDateString(); }catch(er){ return ""; } };
+  return e("div",{style:{direction:LG==="he"?"rtl":"ltr"}},
+    e("div",{style:lab},tr("key")),
+    e("input",{type:"password",value:key,autoComplete:"off",onChange:ev=>{ setKey(ev.target.value); setMsg(""); },style:inp,"data-testid":"inv-key"}),
+    e("div",{style:{fontSize:"9.3px",color:T.gray2,fontFamily:"monospace",marginTop:"4px",lineHeight:1.4}},tr("keyh")),
+    e("div",{style:lab},tr("label")),
+    e("input",{value:label,maxLength:60,onChange:ev=>setLabel(ev.target.value),style:inp,"data-testid":"inv-label"}),
+    e("div",{style:{display:"flex",gap:"12px",flexWrap:"wrap",alignItems:"flex-end"}},
+      e("div",null,e("div",{style:lab},tr("days")),sel(days,setDays,[7,30,90],tr("d"))),
+      e("div",null,e("div",{style:lab},tr("max")),sel(max,setMax,[1,3,5,10]))),
+    e("div",{style:{margin:"12px 0 6px",display:"flex",gap:"8px",flexWrap:"wrap"}},
+      e("button",{onClick:create,disabled:busy,style:btn(T.green),"data-testid":"inv-create"},"✉ "+tr("create")),
+      e("button",{onClick:load,disabled:busy,style:btn(T.cyan)},"↻ "+tr("refresh"))),
+    msg&&e("div",{style:{fontSize:"10.5px",fontFamily:"monospace",margin:"4px 0",color:msg===tr("copied")?T.green:T.red},"data-testid":"inv-msg"},msg),
+    link&&e("div",{style:{background:`${T.green}12`,border:`1px solid ${T.green}55`,borderRadius:"9px",padding:"10px",margin:"8px 0"}},
+      e("input",{readOnly:true,value:link,onFocus:ev=>ev.target.select(),style:inp,"data-testid":"inv-link"}),
+      e("div",{style:{display:"flex",gap:"8px",marginTop:"8px"}},
+        e("button",{onClick:()=>copy(link),style:btn(T.cyan)},"⧉ "+tr("copy")),
+        e("button",{onClick:()=>share(link),style:btn(T.gold)},"↗ "+tr("share")))),
+    e("div",{style:{...lab,marginTop:"16px",fontWeight:"800"}},tr("list")),
+    items&&items.length===0&&e("div",{style:{fontSize:"10.5px",color:T.gray2,fontFamily:"monospace"}},tr("none")),
+    (items||[]).map(it=>e("div",{key:it.id,"data-testid":"inv-row",style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"8px",border:`1px solid ${T.border}`,borderRadius:"9px",padding:"8px 10px",margin:"6px 0",background:T.bg2}},
+      e("div",{style:{minWidth:0,fontFamily:"monospace",fontSize:"11px",color:T.white}},
+        e("div",{style:{fontWeight:"700",overflow:"hidden",textOverflow:"ellipsis"}},it.label||"—"),
+        e("div",{style:{fontSize:"9.5px",color:T.gray2}},tr("used")+" "+(it.used||0)+"/"+(it.max||0)+" · "+tr("until")+" "+fmt(it.exp))),
+      e("div",{style:{display:"flex",gap:"6px"}},
+        e("button",{onClick:()=>{ const u=base().replace(/^(https?:\/\/)relay\./,"$1")+"/join/"+it.id; copy(u); },style:btn(T.cyan),title:tr("copy")},"⧉"),
+        e("button",{onClick:()=>revoke(it.id),disabled:busy,style:btn(T.red)},tr("revoke"))))));
+}
 function VxTip(props){
   const e=React.createElement; const T=props.T;
   const [o,setO]=React.useState(false);
@@ -17266,7 +17353,7 @@ function SimpleApp({onSwitchAdvanced, lang, setLang}){
           t("menu_pro_view",lang||"ru")))),
 
     // ── BODY ──────────────────────────────────────────────────────────────
-    e("div",{style:{flex:1,padding:"24px 16px 32px",maxWidth:"520px",
+    e("div",{className:"qe-sbody",style:{flex:1,padding:"24px 16px 32px",maxWidth:"520px",
       margin:"0 auto",width:"100%"}},
 
       // TICKER SEARCH — look up ONE specific stock by symbol (uses the same
@@ -17832,6 +17919,7 @@ function App(){
   const [showWatch,setShowWatch]=useState(false);
   const [showInst,setShowInst]=useState(false);
   const [showBackup,setShowBackup]=useState(false);
+  const [showInvite,setShowInvite]=useState(false);
   const [backupMsg,setBackupMsg]=useState("");
   const [showDataSrc,setShowDataSrc]=useState(false);
   const [dsProvider,setDsProvider]=useState(()=>{ try{ return window.EWEngine.getDataConfig().provider; }catch(e){ return "free"; } });
@@ -17901,7 +17989,7 @@ function App(){
   const [stakesData,setStakesData]=useState(()=>{ try{ return window.EWEngine.getCachedLargeStakes(); }catch(e){ return null; } });
   const [instLoading,setInstLoading]=useState(false);
   const [instMsg,setInstMsg]=useState("");
-  const closeAllModals=()=>{ try{ setShowStats(false); setShowScreener(false); setShowWatch(false); setShowInst(false); setDbgOpen(false); setShowStrictCfg(false); setShowBackup(false); setConfirmClear(false); setShowDataSrc(false); setLogOpen(false); setBtOpen(false); setColOpen(false); setCalOpen(false); setShowCompare(false); setShowMovers(false); setShowEarnings(false); setShowAlerts(false); setShowPortfolio(false); setShowVX(false); setShowSelfAudit(false); }catch(e){} };
+  const closeAllModals=()=>{ try{ setShowStats(false); setShowScreener(false); setShowWatch(false); setShowInst(false); setDbgOpen(false); setShowStrictCfg(false); setShowBackup(false); setShowInvite(false); setConfirmClear(false); setShowDataSrc(false); setLogOpen(false); setBtOpen(false); setColOpen(false); setCalOpen(false); setShowCompare(false); setShowMovers(false); setShowEarnings(false); setShowAlerts(false); setShowPortfolio(false); setShowVX(false); setShowSelfAudit(false); }catch(e){} };
   const saveDataSrc=()=>{ try{ window.EWEngine.setDataConfig({provider:dsProvider, apiKey:dsKey.trim(), apiSecret:dsSecret.trim(), fmpKey:dsFmpKey.trim()}); setDsMsg(t("ds_saved"));
     try{ const rt=window.EWEngine.QERealtime; if(rt){ rt.stop(); if(rt.available()){ window.dispatchEvent(new CustomEvent("qe_rt_reconnect")); } } }catch(e){}
   }catch(e){} };
@@ -20059,7 +20147,7 @@ function App(){
   // from the main page). Used to (a) hide the main sticky header+menu so it can
   // never visually sit on top of a modal regardless of WebView stacking-context
   // quirks, and (b) target the right scroll container for "Наверх".
-  const anyModalOpen = showStats||showScreener||showWatch||showInst||dbgOpen||showStrictCfg||showBackup||showDataSrc||showSim||showRecip||showCompare||showMovers||showEarnings||showAlerts||showPortfolio||showMore||showVX;
+  const anyModalOpen = showStats||showScreener||showWatch||showInst||dbgOpen||showStrictCfg||showBackup||showInvite||showDataSrc||showSim||showRecip||showCompare||showMovers||showEarnings||showAlerts||showPortfolio||showMore||showVX;
 
   // ── LOGIN GATE: when the user enabled "require phone login", block the app until verified ──
   if(authRequired && !authUser){
@@ -20194,7 +20282,7 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
     )
     ),
     // ── RELAY BAR on the main screen (was Σ-panel only): set + test the data relay here ──
-    e("div",{key:"relaybar",style:{display:"flex",gap:"6px",alignItems:"center",margin:"0 auto 10px",maxWidth:"680px",padding:"0 12px",flexWrap:"wrap"}},
+    e("div",{key:"relaybar",className:"qe-relaybar",style:{display:"flex",gap:"6px",alignItems:"center",margin:"0 auto 10px",maxWidth:"680px",padding:"0 12px",flexWrap:"wrap"}},
       e("span",{style:{fontSize:"9px",color:T.gray2,fontFamily:"monospace",whiteSpace:"nowrap"}},(LANG==="he"?"ריליי:":LANG==="en"?"Relay:":"Релей:")),
       e("input",{value:relayVal,onChange:ev=>{ setRelayVal(ev.target.value); setRelayMsg(""); },placeholder:((typeof window!=="undefined"&&window.QV_RELAY_DEFAULT)||"https://relay…"),
         style:{flex:"1 1 180px",minWidth:0,background:T.bg2,border:`1px solid ${T.border}`,borderRadius:"8px",padding:"7px 9px",color:T.white,fontSize:"10.5px",fontFamily:"monospace",outline:"none"}}),
@@ -20210,6 +20298,8 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
             .then(j=>{ if(!(j&&j.chart&&!j.chart.error&&j.chart.result)) throw new Error("bad"); setRelayMsg("OK "+(Date.now()-t0)+"ms"); })
             .catch(()=>{ setRelayMsg(LANG==="he"?"שגיאה":LANG==="en"?"fail":"ошибка"); }); },
         style:{background:T.bg2,border:`1px solid ${T.gold}`,color:T.gold,borderRadius:"8px",padding:"7px 10px",fontSize:"10.5px",fontFamily:"monospace",fontWeight:"700",cursor:"pointer",whiteSpace:"nowrap"}},(LANG==="he"?"בדיקה":LANG==="en"?"Test":"Тест")),
+      e("button",{onClick:()=>{ closeAllModals(); setShowInvite(true); },"data-testid":"open-invite",
+        style:{background:T.bg2,border:`1px solid ${T.green}`,color:T.green,borderRadius:"8px",padding:"7px 10px",fontSize:"10.5px",fontFamily:"monospace",fontWeight:"700",cursor:"pointer",whiteSpace:"nowrap"}},"✉ "+(LANG==="he"?"הזמנות":LANG==="en"?"Invites":"Приглашения")),
       relayMsg&&e("span",{style:{fontSize:"9px",fontFamily:"monospace",whiteSpace:"nowrap",
         color:(relayMsg.indexOf("OK")===0?T.green:(/ошиб|fail|שגיא|https|нет|no relay|אין|err/.test(relayMsg)?T.red:T.gray2))}},relayMsg),
       // CHOICE: with relay (auto) or without (direct CORS sources only)
@@ -20265,7 +20355,7 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
       e("div",{style:{whiteSpace:"nowrap",fontSize:"9.9px",color:`${T.green}44`,letterSpacing:"2px",animation:"scroll 40s linear infinite",willChange:"transform"}},
         "▲ ZIGZAG PIVOTS · ELLIOTT WAVE LABELING · FIBONACCI LEVELS · RSI CONFIRMATION · FREE REAL DATA · NO API KEY · ▲ ZIGZAG PIVOTS · ELLIOTT WAVE LABELING · FIBONACCI LEVELS · RSI CONFIRMATION · FREE REAL DATA · NO API KEY · ")
     ),
-    e("div",{style:{maxWidth:"960px",margin:"0 auto",padding:"24px 16px",position:"relative",zIndex:1}},
+    e("div",{className:"qe-fbody",style:{maxWidth:"960px",margin:"0 auto",padding:"24px 16px",position:"relative",zIndex:1}},
       e("div",{style:{marginBottom:"24px"}},
         e("div",{style:{fontSize:"8.8px",color:`${T.green}55`,letterSpacing:"4px",textTransform:"uppercase",marginBottom:"6px"}},t("system_tag")),
         e("h1",{style:{fontSize:"clamp(18px,3.5vw,30px)",fontWeight:"900",margin:0,color:T.white,letterSpacing:"1px",lineHeight:1.15}},
@@ -21662,6 +21752,11 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
               e("span",{style:{color:T.white,flex:"0 0 auto"}},r.name),
               e("span",{style:{color:T.gray2,flex:"1 1 auto",textAlign:"right"}},r.detail)))))
       ]),
+      showInvite&&mShell(T.cyan, closeAllModals, [
+        mHead((LANG==="he"?"✉ הזמנות לגרסת הווב":LANG==="en"?"✉ Web app invitations":"✉ Приглашения в веб-версию"), T.cyan, closeAllModals,
+          (LANG==="he"?"הקישור פותח את הגרסה הסגורה. השרת שומר רק קוד, תווית שלך, תוקף ומונה.":LANG==="en"?"The link opens the closed web version. The server keeps only a code, your label, expiry and a counter.":"Ссылка открывает закрытую веб-версию. Сервер хранит только код, вашу пометку, срок и счётчик.")),
+        e(InvitePanel,{key:"invp",T:T,LANG:LANG,base:_relayBase})
+      ]),
       showBackup&&mShell(T.green, closeAllModals, [
         mHead(t("kb_title"), T.green, closeAllModals, t("kb_sub")),
         (()=>{ let bak=null; try{ bak=window.EWEngine.hasAutoBackup(); }catch(e){}
@@ -22894,7 +22989,7 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
       )
     ),
     // ── CLEAN BOTTOM NAVIGATION (primary, SA-style) ──
-    e("div",{style:{position:"fixed",left:0,right:0,bottom:0,zIndex:1500,background:T.bg1,borderTop:`1px solid ${T.border}`,
+    e("div",{className:"qe-bnav",style:{position:"fixed",left:0,right:0,bottom:0,zIndex:1500,background:T.bg1,borderTop:`1px solid ${T.border}`,
       display:anyModalOpen?"none":"flex",justifyContent:"space-around",alignItems:"stretch",height:"58px",
       boxShadow:theme==="light"?"0 -2px 12px rgba(16,24,38,.08)":"0 -3px 16px rgba(0,0,0,.22)",paddingBottom:"env(safe-area-inset-bottom,0px)"}},
       [["search","🔎",t("nav_search"),()=>{ closeAllModals(); try{ window.scrollTo({top:0,behavior:"smooth"}); }catch(e){ window.scrollTo(0,0); } }],
