@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.140</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.141</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.140";
+const QE_VERSION = "15.12.141";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -2185,11 +2185,12 @@ async function fetchQuote(symbol, opts){
     try{ const q=await QEBin.quote(symbol); delete _qvQErr[symbol]; const px=q.price; const cp=+q.changePct.toFixed(2);
       return { price:+px.toPrecision(7)*1, changePct:cp, direction:cp>0.05?"up":cp<-0.05?"down":"flat", asOf:q.asOf, marketState:"REGULAR", src:q.src||"binance" }; }catch(e){}
   }
+  let _rtp=null; try{ if(typeof QEAlp!=="undefined"&&QEAlp.has()&&/^[A-Z]{1,5}$/.test(symbol)){ QEAlp.want(symbol); _rtp=QEAlp.price(symbol); } }catch(_e){}
   try{
-    const rows = await fetchOHLC(symbol, opts);
+    const rows = await fetchOHLC(symbol, _rtp?{...(opts||{}),force:false}:opts);
     delete _qvQErr[symbol];
-    if(!rows || rows.length<2) return null;
-    const last = rows[rows.length-1].close;
+    if(!rows || rows.length<2) return _rtp?{price:+_rtp.toFixed(2),changePct:0,direction:"flat",asOf:Date.now(),marketState:"REGULAR",src:"alpaca"}:null;
+    const last = _rtp||rows[rows.length-1].close;
     const prev = rows[rows.length-2].close;
     if(!(last>0) || !(prev>0)) return null;
     const changePct = ((last-prev)/prev)*100;
@@ -15020,6 +15021,85 @@ function InvitePanel(props){
         e("button",{onClick:()=>revoke(it.id),disabled:busy,style:btn(T.red)},tr("revoke"))))));
 }
 // ── Live scalping monitor (vc586): always visible on the virtual-exchange screen. Shows what the turbo engine is doing right now, per market.
+/* vc588: QEAlp — FREE Alpaca IEX trade stream (wss://stream.data.alpaca.markets/v2/iex) for US stocks. Own keys (qe_alp_k / qe_alp_s, device only), independent of the global data provider.
+   Any US ticker quoted by the app is auto-subscribed (LRU, free plan = 30 symbols). A tick younger than 6 s replaces the REST price; otherwise the old Yahoo path is used unchanged. */
+const QEAlp=(function(){
+  let ws=null, ready=false, want=[], subbed=new Set(), last={}, retries=0, timer=null, rsT=null, st="off", err="", ticks=0, fatal=false, keySig="";
+  const MAX=30;
+  const cfg=()=>{ try{ return {k:(localStorage.getItem("qe_alp_k")||"").trim(), s:(localStorage.getItem("qe_alp_s")||"").trim()}; }catch(e){ return {k:"",s:""}; } };
+  const has=()=>{ const c=cfg(); return !!(c.k&&c.s); };
+  const send=(o)=>{ try{ if(ws&&ws.readyState===1){ ws.send(JSON.stringify(o)); return true; } }catch(e){} return false; };
+  function resub(){
+    if(!ready) return; const w=new Set(want);
+    const add=want.filter(x=>!subbed.has(x)); const del=[...subbed].filter(x=>!w.has(x));
+    if(del.length&&send({action:"unsubscribe",trades:del})) del.forEach(x=>subbed.delete(x));
+    if(add.length&&send({action:"subscribe",trades:add})) add.forEach(x=>subbed.add(x));
+  }
+  function sched(){ if(timer||fatal||!has()) return; const d=Math.min(30000,2000*Math.pow(1.6,Math.min(retries,6))); retries++; timer=setTimeout(()=>{ timer=null; open(); },d); }
+  function open(){
+    if(ws||!has()||fatal||typeof WebSocket==="undefined") return; st="conn"; ready=false; subbed=new Set(); keySig=cfg().k+"|"+cfg().s;
+    let w; try{ w=new WebSocket("wss://stream.data.alpaca.markets/v2/iex"); }catch(e){ st="err"; err="ws"; sched(); return; } ws=w;
+    w.onmessage=(ev)=>{ let a; try{ a=JSON.parse(ev.data); }catch(e){ return; } (Array.isArray(a)?a:[a]).forEach(x=>{
+      if(!x) return;
+      if(x.T==="success"&&x.msg==="connected"){ const c=cfg(); send({action:"auth",key:c.k,secret:c.s}); }
+      else if(x.T==="success"&&x.msg==="authenticated"){ ready=true; st="ok"; err=""; retries=0; resub(); }
+      else if(x.T==="t"){ const p=+x.p; if(p>0){ last[x.S]={p:p,ts:Date.now()}; ticks++; } }
+      else if(x.T==="error"){ err=(x.code||"")+" "+(x.msg||""); st="err"; if(x.code===401||x.code===402||x.code===403||x.code===409){ fatal=(x.code===402||x.code===401||x.code===409); } try{ window.QELog&&window.QELog.warn("QEAlp","alpaca "+err); }catch(e){} }
+    }); };
+    w.onerror=()=>{};
+    w.onclose=()=>{ ws=null; ready=false; subbed=new Set(); if(st==="ok") st="conn"; sched(); };
+  }
+  function close(){ if(timer){ clearTimeout(timer); timer=null; } const w=ws; ws=null; ready=false; subbed=new Set(); if(w){ try{ w.onclose=null; w.close(); }catch(e){} } st="off"; }
+  return {
+    has:has,
+    start(){ fatal=false; retries=0; if(has()){ if(ws&&keySig!==cfg().k+"|"+cfg().s) close(); open(); } else close(); },
+    stop:close,
+    setKeys(k,sec){ try{ localStorage.setItem("qe_alp_k",String(k||"").trim()); localStorage.setItem("qe_alp_s",String(sec||"").trim()); }catch(e){} close(); fatal=false; err=""; retries=0; last={}; if(has()) open(); },
+    clearKeys(){ try{ localStorage.removeItem("qe_alp_k"); localStorage.removeItem("qe_alp_s"); }catch(e){} close(); fatal=false; err=""; last={}; },
+    // register a US ticker for streaming (LRU) — cheap, called on every quote
+    want(sym){ if(!has()||!/^[A-Z]{1,5}$/.test(sym)) return; const i=want.indexOf(sym); if(i>=0&&i===want.length-1) return;
+      if(i>=0) want.splice(i,1); want.push(sym); while(want.length>MAX) want.shift();
+      if(!ws&&!fatal) open(); if(rsT) return; rsT=setTimeout(()=>{ rsT=null; resub(); },150); },
+    price(sym,maxAge){ const r=last[sym]; if(!r) return null; return (Date.now()-r.ts<(maxAge||6000))?r.p:null; },
+    status(){ let fresh=0; const n=Date.now(); for(const k in last){ if(n-last[k].ts<6000) fresh++; } return {st:has()?st:"off",err:err,n:want.length,fresh:fresh,ticks:ticks,lastAge:(function(){ let m=null; for(const k in last){ const a=n-last[k].ts; if(m==null||a<m) m=a; } return m; })()}; }
+  };
+})();
+try{ window.QEAlp=QEAlp; }catch(e){}
+try{ document.addEventListener("visibilitychange",()=>{ try{ if(!document.hidden&&QEAlp.has()) QEAlp.start(); }catch(e){} }); window.addEventListener("online",()=>{ try{ if(QEAlp.has()) QEAlp.start(); }catch(e){} }); }catch(e){}
+
+function VxAlpPanel(props){
+  const e=React.createElement; const T=props.T; const LG=props.LANG||"ru";
+  const X={
+    title:{ru:"⚡ Акции в реальном времени (Alpaca, бесплатно)",he:"⚡ מניות בזמן אמת (Alpaca, חינם)",en:"⚡ Live stock prices (Alpaca, free)"},
+    off:{ru:"не подключено — цены акций идут с задержкой Yahoo (опрос раз в 2 с)",he:"לא מחובר — מחירי מניות מ-Yahoo (דגימה כל 2 שנ׳)",en:"not connected — stock prices come from Yahoo (polled every 2 s)"},
+    conn:{ru:"подключаюсь…",he:"מתחבר…",en:"connecting…"}, ok:{ru:"● поток идёт",he:"● הזרם פעיל",en:"● streaming"},
+    err:{ru:"⚠ ошибка",he:"⚠ שגיאה",en:"⚠ error"},
+    stat:{ru:"тикеров {n} · свежих тиков {f} · всего {t}",he:"סימולים {n} · טיקים טריים {f} · סה״כ {t}",en:"symbols {n} · fresh ticks {f} · total {t}"},
+    k:{ru:"API Key ID",he:"API Key ID",en:"API Key ID"}, sec:{ru:"Secret Key",he:"Secret Key",en:"Secret Key"},
+    save:{ru:"Сохранить и подключить",he:"שמור והתחבר",en:"Save & connect"}, del:{ru:"Удалить ключи",he:"מחק מפתחות",en:"Remove keys"}, cfg:{ru:"Настроить",he:"הגדרה",en:"Set up"}, hide:{ru:"Скрыть",he:"הסתר",en:"Hide"},
+    how:{ru:"1) Бесплатная регистрация на alpaca.markets (достаточно аккаунта Paper Trading). 2) Paper → «API Keys» → создайте ключ. 3) Вставьте Key ID и Secret сюда. Ключи хранятся только на этом устройстве и отправляются только в Alpaca. Бесплатный тариф: до 30 тикеров, цены биржи IEX (малая часть рынка, могут слегка отличаться от общей цены), одно соединение на ключ (на втором устройстве с тем же ключом поток не откроется). Если тика нет дольше 6 с — цена берётся из Yahoo, как раньше.",
+         he:"1) הרשמה חינם ב-alpaca.markets (מספיק חשבון Paper Trading). 2) Paper ← „API Keys” ← צור מפתח. 3) הדבק Key ID ו-Secret כאן. המפתחות נשמרים רק במכשיר זה ונשלחים רק ל-Alpaca. חבילה חינמית: עד 30 סימולים, מחירי בורסת IEX (חלק קטן מהשוק, עשויים להיות שונים מעט), חיבור אחד לכל מפתח. אם אין טיק מעל 6 שנ׳ — המחיר מ-Yahoo כמו קודם.",
+         en:"1) Free sign-up at alpaca.markets (a Paper Trading account is enough). 2) Paper → “API Keys” → generate a key. 3) Paste Key ID and Secret here. Keys stay on this device and are sent only to Alpaca. Free plan: up to 30 symbols, IEX exchange prices (a small share of the market, may differ slightly from the consolidated price), one connection per key (a second device with the same key will not stream). If there is no tick for 6 s the price comes from Yahoo as before."}
+  };
+  const tr=(k)=>(X[k]&&(X[k][LG]||X[k].ru))||k;
+  const [,setN]=React.useState(0); React.useEffect(()=>{ const id=setInterval(()=>setN(x=>x+1),1000); return ()=>clearInterval(id); },[]);
+  const [open,setOpen]=React.useState(false); const [k,setK]=React.useState(()=>{ try{ return localStorage.getItem("qe_alp_k")||""; }catch(er){ return ""; } }); const [sc,setSc]=React.useState(()=>{ try{ return localStorage.getItem("qe_alp_s")||""; }catch(er){ return ""; } });
+  React.useEffect(()=>{ try{ if(QEAlp.has()) QEAlp.start(); }catch(er){} },[]);
+  const S=QEAlp.status(); const col=S.st==="ok"?T.green:(S.st==="err"?T.red:(S.st==="conn"?(T.amber||T.gold):T.gray2));
+  const line=S.st==="off"?tr("off"):(S.st==="ok"?tr("ok")+" · "+tr("stat").replace("{n}",String(S.n)).replace("{f}",String(S.fresh)).replace("{t}",String(S.ticks)):(S.st==="err"?tr("err")+": "+S.err:tr("conn")));
+  const inp=(v,f,ph,tid)=>e("input",{type:"password",value:v,placeholder:ph,"data-testid":tid,autoComplete:"off",autoCapitalize:"off",spellCheck:false,onChange:ev=>f(ev.target.value),style:{width:"100%",boxSizing:"border-box",background:T.bg2,border:`1px solid ${T.border}`,color:T.white,borderRadius:"8px",padding:"8px 10px",fontFamily:"monospace",fontSize:"13px",marginBottom:"6px"}});
+  return e("div",{"data-testid":"alppanel",style:{background:T.bg1,border:`1px solid ${S.st==="ok"?T.green:T.border}66`,borderRadius:"12px",padding:"10px 12px",marginBottom:"12px"}},
+    e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px"}},
+      e("div",{style:{fontSize:"13px",color:T.cyan,fontFamily:"monospace",fontWeight:"900"}},tr("title")),
+      e("button",{onClick:()=>setOpen(o=>!o),"data-testid":"alpcfg",style:{background:"transparent",border:`1px solid ${T.border}`,color:T.gray1,borderRadius:"8px",padding:"4px 10px",fontFamily:"monospace",fontSize:"11.5px",cursor:"pointer"}},open?tr("hide"):tr("cfg"))),
+    e("div",{"data-testid":"alpstat",style:{fontSize:"11.5px",color:col,fontFamily:"monospace",marginTop:"4px",lineHeight:1.4}},line),
+    open&&e("div",{style:{marginTop:"8px"}},
+      inp(k,setK,tr("k"),"alpk"), inp(sc,setSc,tr("sec"),"alps"),
+      e("div",{style:{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"8px"}},
+        e("button",{onClick:()=>{ QEAlp.setKeys(k,sc); },"data-testid":"alpsave",style:{background:`${T.green}22`,border:`1.5px solid ${T.green}`,color:T.green,borderRadius:"9px",padding:"8px 12px",fontSize:"12px",fontFamily:"monospace",fontWeight:"800",cursor:"pointer"}},tr("save")),
+        e("button",{onClick:()=>{ QEAlp.clearKeys(); setK(""); setSc(""); },"data-testid":"alpdel",style:{background:`${T.red}18`,border:`1.5px solid ${T.red}`,color:T.red,borderRadius:"9px",padding:"8px 12px",fontSize:"12px",fontFamily:"monospace",fontWeight:"800",cursor:"pointer"}},tr("del"))),
+      e("div",{style:{fontSize:"10.8px",color:T.gray2,fontFamily:"monospace",lineHeight:1.5}},tr("how"))));
+}
 function VxScalpMon(props){
   const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const tb=props.tb||{}; const mk=props.mk||{}; const on=!!props.scalpOn;
   const [,setN]=useState(0); useEffect(()=>{ const id=setInterval(()=>setN(x=>x+1),1000); return ()=>clearInterval(id); },[]);
@@ -21353,6 +21433,7 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
               e(VxScalpMon,{T:T,LANG:LANG,tb:tbUi,mk:tbMk,scalpOn:scalpOn,hb:()=>tbRef.current.hb,
                 onMaster:()=>{ const v=!scalpOn; setScalpOnS(v); try{ localStorage.setItem("qe_vx_scalp",v?"1":"0"); }catch(x){} try{ window.QEVXLog.log("INFO","tb.master",{on:v}); }catch(x){} setTimeout(()=>{ try{ _tbScan(); }catch(x){} },50); },
                 onMk:_setTbMk}),
+              e(VxAlpPanel,{T:T,LANG:LANG}),
               e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}},
                 (window.__vxWant=_vxWantTk(),null),
                 e("div",{style:{fontSize:"12.8px",color:T.gray1,fontFamily:"monospace",fontWeight:"700",letterSpacing:"0.5px"}},t("vx_positions")),
