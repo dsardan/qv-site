@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.150</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.151</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.150";
+const QE_VERSION = "15.12.151";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -15229,13 +15229,19 @@ function VxCtPanel(props){
     cap:{ru:"бюджет",he:"תקציב",en:"budget"}, pos:{ru:"позиций",he:"פוזיציות",en:"positions"}, err:{ru:"ошибка",he:"שגיאה",en:"error"},
     e_no_data:{ru:"нет дневных данных Binance/Yahoo — повторю через 10 мин",he:"אין נתונים יומיים מ-Binance/Yahoo — אנסה שוב בעוד 10 דק׳",en:"no daily data from Binance/Yahoo — retry in 10 min"},
     lite:{ru:"данные короткие (Yahoo): часть каналов не используется",he:"נתונים קצרים (Yahoo): חלק מהערוצים לא בשימוש",en:"short data (Yahoo): some channels unused"},
+    kr_t:{ru:"Kronos (ИИ-прогноз свечей на 7 дн.)",he:"Kronos (תחזית נרות ל-7 ימים)",en:"Kronos (7-day candle forecast)"},
+    kr_none:{ru:"прогноз ещё не получен (сервер считает раз в сутки)",he:"עדיין אין תחזית (השרת מחשב פעם ביום)",en:"no forecast yet (the server computes it daily)"},
+    kr_stale:{ru:"прогноз устарел — не используется",he:"התחזית ישנה — לא בשימוש",en:"forecast is stale — not used"},
+    kr_info:{ru:"только показ: прогноз пока НЕ влияет на сделки. Он начнёт блокировать новые входы/доборы (при P(рост)<45 %), только когда живая статистика (≥40 проверенных прогнозов за ≥10 дней) покажет точность выше «наивной» на 3 п.п.",he:"הצגה בלבד: התחזית עדיין לא משפיעה על עסקאות. היא תחסום כניסות/תוספות חדשות (P(עלייה)<45%) רק כשהסטטיסטיקה החיה (≥40 תחזיות שנבדקו, ≥10 ימים) תראה דיוק גבוה מהנאיבי ב-3 נק׳.",en:"display only: the forecast does NOT affect trades yet. It will block new entries/adds (when P(up)<45%) only once live stats (≥40 scored forecasts over ≥10 days) beat the naive baseline by 3 pp."},
+    kr_gate:{ru:"АКТИВЕН: блокирует новые входы/доборы при P(рост)<45 %. Выходы не затрагивает.",he:"פעיל: חוסם כניסות/תוספות חדשות כש-P(עלייה)<45%. לא נוגע ביציאות.",en:"ACTIVE: blocks new entries/adds when P(up)<45%. Exits are never touched."},
+    kr_trk:{ru:"живая проверка",he:"בדיקה חיה",en:"live check"}, d_krveto:{ru:"Kronos против входа",he:"Kronos נגד כניסה",en:"Kronos vetoes entry"},
     d_enter:{ru:"ВХОД",he:"כניסה",en:"ENTER"}, d_add:{ru:"добор",he:"הוספה",en:"add"}, d_trim:{ru:"частичный выход",he:"יציאה חלקית",en:"partial exit"}, d_exit:{ru:"ВЫХОД",he:"יציאה",en:"EXIT"}, d_hold:{ru:"держу",he:"מחזיק",en:"hold"}, d_flat:{ru:"нет сигнала",he:"אין סיגנל",en:"no signal"}, d_small:{ru:"доля меньше $50",he:"פחות מ-$50",en:"under $50"}, d_busy:{ru:"занята скальпером/вручную",he:"תפוס",en:"busy (scalper/manual)"}, d_young:{ru:"листинг <400 дн.",he:"נרשם <400 ימים",en:"listed <400 d"}, d_noprice:{ru:"нет цены",he:"אין מחיר",en:"no price"}, d_nocash:{ru:"мало кэша",he:"מעט מזומן",en:"low cash"}, d_refused:{ru:"отказ",he:"נדחה",en:"refused"},
     test:{ru:"Исторический тест (BTC+ETH, 2016–2026, комиссия 0.10 %/сторона, данные Coin Metrics): ≈+47 %/год, Sharpe ≈1.7, просадка ≈−25 % против buy&hold +99 %/год и −88 %. Но 2021–2023: +22 % против +32 %; 2024–2026: +12 % против +14 % (просадка −22 % против −55 %). Это история, не гарантия.",he:"בדיקה היסטורית (BTC+ETH, 2016–2026, עמלה 0.10% לצד, נתוני Coin Metrics): ≈+47% בשנה, Sharpe ≈1.7, ירידה מקסימלית ≈−25% מול buy&hold +99% ו-−88%. אך 2021–2023: +22% מול +32%; 2024–2026: +12% מול +14% (ירידה −22% מול −55%). זו היסטוריה, לא ערובה.",en:"Historical test (BTC+ETH, 2016–2026, 0.10 %/side fees, Coin Metrics data): ≈+47 %/yr, Sharpe ≈1.7, drawdown ≈−25 % vs buy&hold +99 %/yr and −88 %. But 2021–2023: +22 % vs +32 %; 2024–2026: +12 % vs +14 % (drawdown −22 % vs −55 %). History, not a guarantee."}
   };
   const tr=(k)=>(X[k]&&(X[k][LG]||X[k].ru))||k;
   const agoS=(ts)=>{ if(!ts) return tr("never"); const d=Math.round((Date.now()-ts)/1000); return (d<90?d+" s":(d<5400?Math.round(d/60)+" min":Math.round(d/3600)+" h"))+" "+tr("ago"); };
   const rows=ui.rows||[];
-  const txt=()=>"QuantView crypto-trend · "+new Date().toLocaleString()+"\n"+tr("last")+": "+agoS(ui.ts)+" · "+tr("cap")+": $"+(ui.cap||0)+(ui.err?(" · "+tr("err")+": "+ui.err):"")+"\n"+rows.map(r=>r.tk.replace("-USD","")+": "+(r.s!=null?(r.n+"/"+r.m+" vol "+r.vol+" tgt $"+r.tgt+" now $"+r.cur):"")+" "+tr("d_"+r.dec)).join("\n");
+  const txt=()=>"QuantView crypto-trend · "+new Date().toLocaleString()+"\n"+tr("last")+": "+agoS(ui.ts)+" · "+tr("cap")+": $"+(ui.cap||0)+(ui.err?(" · "+tr("err")+": "+ui.err):"")+"\n"+rows.map(r=>r.tk.replace("-USD","")+": "+(r.s!=null?(r.n+"/"+r.m+" vol "+r.vol+" tgt $"+r.tgt+" now $"+r.cur):"")+(r.k!=null?(" K "+Math.round(r.k*100)+"%"):"")+" "+tr("d_"+r.dec)).join("\n");
   const copy=()=>{ const t=txt(); const ok=()=>{ setCp(true); setTimeout(()=>setCp(false),2000); }; try{ navigator.clipboard.writeText(t).then(ok); }catch(er){ try{ const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); ok(); }catch(e2){} } };
   const btn=(c)=>({background:T.bg2,border:`1px solid ${c}`,color:c===T.border?T.white:c,borderRadius:"9px",padding:"7px 11px",fontSize:"12px",fontFamily:"monospace",fontWeight:"800",cursor:"pointer"});
   const inp={background:T.bg2,border:`1px solid ${T.border}`,color:T.white,borderRadius:"8px",padding:"5px 8px",fontSize:"12px",fontFamily:"monospace",width:"64px"};
@@ -15251,13 +15257,15 @@ function VxCtPanel(props){
     e("div",{style:{fontSize:"11.5px",color:T.gray1,fontFamily:"monospace",lineHeight:1.5}},tr("last")+": "+agoS(ui.ts)+" · "+tr("cap")+": $"+(ui.cap||0)+" · "+tr("pos")+": "+(ui.pos||0)),
     ui.err&&e("div",{"data-testid":"ct-err",style:{fontSize:"11.5px",color:T.red,fontFamily:"monospace",marginTop:"3px"}},tr("err")+": "+(X["e_"+ui.err]?tr("e_"+ui.err):ui.err)),
     ui.lite&&e("div",{style:{fontSize:"11px",color:T.gold,fontFamily:"monospace",marginTop:"3px"}},tr("lite")),
+    e("div",{"data-testid":"ct-kr",style:{fontSize:"11px",color:(ui.kr&&ui.kr.gate)?T.green:T.gray1,fontFamily:"monospace",marginTop:"5px",lineHeight:1.5}},
+      "🔮 "+tr("kr_t")+": "+(!ui.kr?tr("kr_none"):(!ui.kr.fresh?tr("kr_stale"):(ui.kr.asof+" · "+tr("kr_trk")+": "+((ui.kr.track&&ui.kr.track.n)?("n="+ui.kr.track.n+", "+Math.round(ui.kr.track.hit*100)+"% vs "+Math.round(ui.kr.track.base*100)+"%"):"n=0")+" · "+(ui.kr.gate?tr("kr_gate"):tr("kr_info")))))),
     e("div",{style:{display:"flex",gap:"8px",flexWrap:"wrap",marginTop:"8px"}},
       e("button",{onClick:props.onEval,disabled:!!ui.busy,"data-testid":"ct-eval",style:{...btn(T.cyan),opacity:ui.busy?0.6:1}},ui.busy?tr("busy"):tr("run")),
       e("button",{onClick:()=>setOpen(!open),"data-testid":"ct-more",style:btn(T.border)},(open?"▾ ":"▸ ")+"Σ"),
       e("button",{onClick:copy,style:btn(T.border)},cp?("✓ "+tr("copied")):tr("copy"))),
     open&&e("div",{"data-testid":"ct-rows",style:{marginTop:"8px",paddingTop:"6px",borderTop:`1px solid ${T.border}`}},
       rows.map((r,i)=>e("div",{key:i,style:{display:"flex",justifyContent:"space-between",gap:"8px",fontSize:"11.5px",fontFamily:"monospace",color:(r.dec==="enter"||r.dec==="add")?T.green:((r.dec==="exit"||r.dec==="trim"||r.dec==="refused")?T.red:T.gray1),lineHeight:1.5}},
-        e("span",null,r.tk.replace("-USD","")+(r.s!=null?(" "+r.n+"/"+r.m):"")),
+        e("span",null,r.tk.replace("-USD","")+(r.s!=null?(" "+r.n+"/"+r.m):"")+(r.k!=null?(" · K "+Math.round(r.k*100)+"%"):"")),
         e("span",{style:{textAlign:"end"}},(r.s!=null?("$"+r.cur+" → $"+r.tgt+" · "):"")+tr("d_"+r.dec)))),
       e("div",{style:{fontSize:"10.8px",color:T.gray2,fontFamily:"monospace",marginTop:"8px",lineHeight:1.5}},tr("test"))));
 }
@@ -19540,13 +19548,21 @@ function App(){
   const CT_STABLE={USDT:1,USDC:1,FDUSD:1,TUSD:1,BUSD:1,DAI:1,USDP:1,USDE:1,PYUSD:1,EUR:1,AEUR:1,WBTC:1,WBETH:1,BFUSD:1,XUSD:1,USD1:1};
   const _ctCfg=()=>{ let on=true,pct=30,tv=25; try{ on=localStorage.getItem("qe_ct_on")!=="0"; const p=parseFloat(localStorage.getItem("qe_ct_pct")); if(p>=0&&p<=100) pct=p; const v=parseFloat(localStorage.getItem("qe_ct_tv")); if(v>=5&&v<=100) tv=v; }catch(e){} return {on:on,pct:pct,tv:tv}; };
   const _ctKey=()=>_vxKey().replace("qe_vexchange_","qe_ct_st_");
-  const _ctLoad=()=>{ try{ const o=JSON.parse(_lsGet(_ctKey())||"null"); return o&&typeof o==="object"?{sig:o.sig||{},pos:o.pos||{},log:o.log||[],ts:o.ts||0,rows:o.rows||[],err:o.err||"",lite:!!o.lite,eq:o.eq||0,cap:o.cap||0,day:o.day||""}:{sig:{},pos:{},log:[],ts:0,rows:[],err:"",lite:false,eq:0,cap:0,day:""}; }catch(e){ return {sig:{},pos:{},log:[],ts:0,rows:[],err:"",lite:false,eq:0,cap:0,day:""}; } };
+  const _ctLoad=()=>{ try{ const o=JSON.parse(_lsGet(_ctKey())||"null"); return o&&typeof o==="object"?{kr:o.kr||null,sig:o.sig||{},pos:o.pos||{},log:o.log||[],ts:o.ts||0,rows:o.rows||[],err:o.err||"",lite:!!o.lite,eq:o.eq||0,cap:o.cap||0,day:o.day||""}:{sig:{},pos:{},log:[],ts:0,rows:[],err:"",lite:false,eq:0,cap:0,day:""}; }catch(e){ return {sig:{},pos:{},log:[],ts:0,rows:[],err:"",lite:false,eq:0,cap:0,day:""}; } };
   const _ctSave=(S)=>{ try{ _lsSet(_ctKey(),JSON.stringify(S)); }catch(e){} };
-  const _ctPub=(S)=>{ try{ setCtUi({ts:S.ts,rows:S.rows,err:S.err,lite:S.lite,eq:S.eq,cap:S.cap,log:S.log.slice(-8),pos:Object.keys(S.pos).length,busy:!!tbRef.current.ctBusy}); }catch(e){} };
+  const _ctPub=(S)=>{ try{ setCtUi({ts:S.ts,rows:S.rows,kr:S.kr||null,err:S.err,lite:S.lite,eq:S.eq,cap:S.cap,log:S.log.slice(-8),pos:Object.keys(S.pos).length,busy:!!tbRef.current.ctBusy}); }catch(e){} };
   const _ctTrade=(tk,side,qty,px,why)=>{ const acct=_tbAcct(); if(!acct||!(qty>0)||!(px>0)) return null; const p=acct.positions.find(x=>x.ticker===tk&&x.qty!==0); const openTs=(p&&p.openTs)||Date.now();
     let r; try{ r=_vxApply(acct,side,tk,qty,px,_vxFeeFor(qty,px,tk),"ct",{limitMin:0,reason:"ct_"+why,openTs:openTs}); }catch(e){ r={ok:false,error:String(e&&e.message||e)}; }
     if(!r.ok){ try{ window.QEVXLog.log("WARN","ct.refused",{tk:tk,side:side,why:why,err:r.error}); }catch(e){} return null; }
     _saveVX(r.acct); setVxPrices(prev=>({...prev,[tk]:px})); try{ window.QEVXLog.log("INFO","ct."+(side==="buy"?"buy":"sell"),{tk:tk,qty:+qty.toFixed(6),px:+px.toPrecision(7),why:why,net:r.net!=null?+r.net.toFixed(2):null}); }catch(e){} return r; };
+  // vc599: Kronos forecast (daily GitHub Actions job -> futuretrainingnow.com/data/kronos.json). Info only until its LIVE track record beats the naive baseline.
+  const _krLoad=async()=>{ let doc=null; try{ doc=JSON.parse(_lsGet("qe_kr")||"null"); }catch(e){}
+    try{ if(!doc||Date.now()-(doc.fts||0)>3600e3){ const base=(typeof QV_RELAY_DEFAULT==="string"?QV_RELAY_DEFAULT:"https://relay.futuretrainingnow.com"); const ctl=(typeof AbortController!=="undefined")?new AbortController():null; const tm=setTimeout(()=>{ try{ ctl&&ctl.abort(); }catch(e){} },12000);
+        try{ const r=await fetch(base+"/data/kronos.json?_="+Math.floor(Date.now()/3600e3),{cache:"no-store",signal:ctl?ctl.signal:undefined}); if(r.ok){ const j=await r.json(); if(j&&j.v===1&&j.coins&&!j.stub){ j.fts=Date.now(); doc=j; try{ _lsSet("qe_kr",JSON.stringify(j)); }catch(e){} } } }finally{ clearTimeout(tm); } } }catch(e){}
+    return _krInfo(doc); };
+  const _krInfo=(doc)=>{ if(!doc||!doc.coins||doc.stub) return {has:false,gate:false,doc:null};
+    const ageD=Math.floor((Date.now()-Date.parse(doc.asof+"T00:00:00Z"))/864e5); const fresh=ageD<=3; const t=doc.track||{}; const gate=!!(fresh&&t.n>=40&&(t.days||0)>=10&&t.hit!=null&&t.base!=null&&t.hit>=t.base+0.03);
+    return {has:true,fresh:fresh,age:ageD,gate:gate,doc:doc,track:t}; };
   const _ctEval=async(force)=>{ const R=tbRef.current; if(R.ctBusy) return; const cfg=_ctCfg(); if(!cfg.on&&!force) return; R.ctBusy=true; const S=_ctLoad(); const nowT=Date.now(); S.err=""; S.lite=false; const rows=[];
     try{ _ctPub(S); const acct0=_tbAcct(); if(!acct0) throw new Error("no_account"); const mem=_loadAi();
       try{ window.QEBin.refreshIf(300000); }catch(e){}
@@ -19556,22 +19572,25 @@ function App(){
       const worker=async()=>{ while(ix<uni.length){ const tk=uni[ix++]; try{ let b=await window.QEBin.klines(tk,"1d",720); const last=b[b.length-1]; if(last&&last.t+864e5>Date.now()) b=b.slice(0,-1); if(b.length>=130) data[tk]=b.map(x=>x.close); else throw new Error("short"); }
           catch(e){ try{ const rws=await window.EWEngine.fetchOHLC(tk); if(rws&&rws.length>=130){ let c=rws.slice(); if(c[c.length-1].date===todayUtc) c=c.slice(0,-1); data[tk]=c.map(x=>x.close); S.lite=true; } }catch(e2){} } } };
       await Promise.all([worker(),worker(),worker(),worker()]);
+      const KR=await _krLoad(); S.kr=KR.has?{asof:KR.doc.asof,age:KR.age,gate:KR.gate,fresh:KR.fresh,track:KR.track,model:KR.doc.model}:null;
       const sigs={}; uni.forEach(tk=>{ const c=data[tk]; if(!c) return; const held=acct0.positions.some(p=>p.ticker===tk&&p.by==="ct"&&p.qty>0); if(c.length<400&&!held&&!S.lite) { rows.push({tk:tk,dec:"young",bars:c.length}); return; } const g=window.QECT.signal(c); if(g) sigs[tk]=g; });
       if(!Object.keys(sigs).length) throw new Error("no_data");
       const wRaw={}; let sumW=0; Object.keys(sigs).forEach(tk=>{ const g=sigs[tk]; const w=Math.min(0.4,g.s*(cfg.tv/100)/Math.max(0.05,g.vol)); wRaw[tk]=w; sumW+=w; }); const scl=sumW>1?1/sumW:1;
       const px={}; await Promise.all(Object.keys(sigs).map(tk=>_tbQuote(tk).then(q=>{ if(q&&q.price>0) px[tk]=q.price; }).catch(()=>{})));
       const acct1=_tbAcct(); const pm={...vxPricesRef.current,...px}; const eq=_vxEquity(acct1,pm).equity; const CAP=Math.max(0,cfg.pct/100*eq); S.eq=Math.round(eq); S.cap=Math.round(CAP);
       for(const tk of Object.keys(sigs)){ const g=sigs[tk]; const price=px[tk]; const a=_tbAcct(); const p=a.positions.find(x=>x.ticker===tk&&x.qty!==0); const th=mem.open&&mem.open[tk]; const ctPos=!!(p&&p.by==="ct"&&p.qty>0); const tgt=CAP*wRaw[tk]*scl; const prevS=(S.sig[tk]&&S.sig[tk].s)||0; const cur=ctPos&&price>0?p.qty*price:0;
-        const row={tk:tk,s:+g.s.toFixed(3),n:g.n,m:g.m,vol:+g.vol.toFixed(2),tgt:Math.round(tgt),cur:Math.round(cur),dec:"hold"};
+        const row={tk:tk,s:+g.s.toFixed(3),n:g.n,m:g.m,vol:+g.vol.toFixed(2),tgt:Math.round(tgt),cur:Math.round(cur),dec:"hold"}; const kc=KR.has&&KR.fresh&&KR.doc.coins[tk]; if(kc) row.k=kc.p; const krVeto=!!(KR.gate&&kc&&kc.p<0.45);
         if(!(price>0)){ row.dec="noprice"; rows.push(row); continue; }
         if((p&&!ctPos)||(th&&th.scalp)){ row.dec="busy"; rows.push(row); S.sig[tk]={s:g.s,n:g.n,m:g.m,ts:nowT}; continue; }
         if(!ctPos){
-          if(g.s>0&&tgt>=50){ const capCash=Math.max(0,a.cash-0.05*eq); const notional=Math.min(tgt,capCash); if(notional>=50){ const qty=Math.floor(notional/price*1e6)/1e6; const r=_ctTrade(tk,"buy",qty,price,"enter"); if(r){ row.dec="enter"; row.cur=Math.round(qty*price); const p2=r.acct.positions.find(x=>x.ticker===tk); S.pos[tk]={stop:+(p2.avg*(1-Math.min(0.25,Math.max(0.06,4*g.sd20)))).toFixed(6),ts:nowT,avg:p2.avg,sd:+g.sd20.toFixed(4)}; } else row.dec="refused"; } else row.dec="nocash"; }
+          if(g.s>0&&tgt>=50&&krVeto){ row.dec="krveto"; }
+          else if(g.s>0&&tgt>=50){ const capCash=Math.max(0,a.cash-0.05*eq); const notional=Math.min(tgt,capCash); if(notional>=50){ const qty=Math.floor(notional/price*1e6)/1e6; const r=_ctTrade(tk,"buy",qty,price,"enter"); if(r){ row.dec="enter"; row.cur=Math.round(qty*price); const p2=r.acct.positions.find(x=>x.ticker===tk); S.pos[tk]={stop:+(p2.avg*(1-Math.min(0.25,Math.max(0.06,4*g.sd20)))).toFixed(6),ts:nowT,avg:p2.avg,sd:+g.sd20.toFixed(4)}; } else row.dec="refused"; } else row.dec="nocash"; }
           else row.dec=g.s>0?"small":"flat"; }
         else {
           if(g.s<prevS-1e-9||g.s===0){
             if(g.s===0){ const r=_ctTrade(tk,"sell",p.qty,price,"exit"); if(r){ row.dec="exit"; row.cur=0; delete S.pos[tk]; } else row.dec="refused"; }
             else if(cur-tgt>0.1*cur&&cur-tgt>=50){ const qty=Math.min(p.qty,Math.floor((cur-tgt)/price*1e6)/1e6); const r=_ctTrade(tk,"sell",qty,price,"trim"); if(r){ row.dec="trim"; row.cur=Math.round(cur-qty*price); } else row.dec="refused"; } }
+          else if(g.s>prevS+1e-9&&tgt>cur*1.1&&tgt-cur>=50&&krVeto){ row.dec="krveto"; }
           else if(g.s>prevS+1e-9&&tgt>cur*1.1&&tgt-cur>=50){ const capCash=Math.max(0,a.cash-0.05*eq); const notional=Math.min(tgt-cur,capCash); if(notional>=50){ const qty=Math.floor(notional/price*1e6)/1e6; const r=_ctTrade(tk,"buy",qty,price,"add"); if(r){ row.dec="add"; row.cur=Math.round(cur+qty*price); const p2=r.acct.positions.find(x=>x.ticker===tk); S.pos[tk]={stop:+(p2.avg*(1-Math.min(0.25,Math.max(0.06,4*g.sd20)))).toFixed(6),ts:(S.pos[tk]&&S.pos[tk].ts)||nowT,avg:p2.avg,sd:+g.sd20.toFixed(4)}; } else row.dec="refused"; } else row.dec="nocash"; } }
         S.sig[tk]={s:g.s,n:g.n,m:g.m,ts:nowT}; rows.push(row); }
       S.ts=nowT; S.day=todayUtc; S.rows=rows; S.log=(S.log||[]).concat([{ts:nowT,txt:rows.filter(r=>r.dec==="enter"||r.dec==="add"||r.dec==="trim"||r.dec==="exit").map(r=>r.dec+" "+r.tk).join(", ")||"hold"}]).slice(-30);
@@ -19584,7 +19603,7 @@ function App(){
       if(dirty){ _ctSave(S); _ctPub(S); } }catch(e){} finally{ R.ctGBusy=false; } };
   const _ctDue=()=>{ const cfg=_ctCfg(); if(!cfg.on) return; const S=_ctLoad(); const nowT=Date.now(); const today=new Date().toISOString().slice(0,10); if(S.day!==today||nowT-S.ts>6*3600e3||(S.err&&nowT-S.ts>600000)) _ctEval(false); };
   const _setCt=(patch)=>{ setCtCfgS(prev=>{ const n={...prev,...patch}; try{ localStorage.setItem("qe_ct_on",n.on?"1":"0"); localStorage.setItem("qe_ct_pct",String(n.pct)); localStorage.setItem("qe_ct_tv",String(n.tv)); }catch(e){} return n; }); };
-  try{ window.__ctDebug={eval:_ctEval,guard:_ctGuard,state:_ctLoad,due:_ctDue}; }catch(e){}
+  try{ window.__ctDebug={kr:_krLoad,eval:_ctEval,guard:_ctGuard,state:_ctLoad,due:_ctDue}; }catch(e){}
   const _tbRp=(M)=>{ const R=tbRef.current; return (R.rep=R.rep||{})[M]||(R.rep[M]={scans:0,qOk:0,qFail:0,sig:0,coolBlk:0,full:0,openOk:0,openFail:0,lastOpen:0,lastOk:0,err:"",errTs:0,rows:[],ts:0,w:0,watch:[]}); };
   const _tbGuideInfo=()=>{ const sg=tbRef.current.sg||{}; return {n:(sg.list||[]).length,via:sg.via||"",ts:sg.ts||0,busy:!!sg.busy,err:sg.err||"",top:(sg.list||[]).slice(0,10).map(x=>x.tk+(x.g?("/"+x.g):"")+":"+Math.round(x.q))}; };
   const _tbScanMkt=async(M,C,mst)=>{ const R=tbRef.current; const acct=_tbAcct(); if(!acct) return; const mem=_loadAi(); const CRm=M==="CR"; R.wm=R.wm||{};

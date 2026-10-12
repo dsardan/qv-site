@@ -83,6 +83,12 @@ export default {
       const r = await env.ASSETS.fetch(request); const h = new Headers(r.headers); h.set("Cache-Control", "private, no-store"); return new Response(r.body, { status: r.status, headers: h });
     }
 
+    // Public market-forecast data written by the daily Kronos job (no personal data): readable from the app (any origin), short cache.
+    if (url.pathname.startsWith("/data/") && env && env.ASSETS && (request.method === "GET" || request.method === "HEAD")) {
+      const r = await env.ASSETS.fetch(request); const h = new Headers(r.headers);
+      h.set("Access-Control-Allow-Origin", "*"); h.set("Cache-Control", "public, max-age=600"); return new Response(r.body, { status: r.status, headers: h });
+    }
+
     const isRelay = url.hostname.startsWith("relay.") || url.searchParams.has("url") || !!WS_ROUTES[url.pathname]
       || (request.method === "OPTIONS");
     if (!isRelay && url.pathname !== "/health" && env && env.ASSETS) return env.ASSETS.fetch(request);

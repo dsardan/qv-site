@@ -1,0 +1,28 @@
+name: kronos-forecast
+on:
+  schedule:
+    - cron: "25 0 * * *"     # daily, just after the UTC daily candle closes (GitHub may delay it by minutes)
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency: kronos
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - name: Install (CPU torch + Kronos)
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy pandas einops==0.8.1 huggingface_hub==0.33.1 safetensors==0.6.2 tqdm
+          git clone --depth 1 https://github.com/shiyu-coder/Kronos Kronos-src
+      - name: Forecast
+        run: python kronos/forecast.py
+      - name: Publish
+        run: |
+          git config user.name "qv-kronos"; git config user.email "qv-kronos@users.noreply.github.com"
+          git add site/data/kronos.json site/data/kronos-hist.json
+          git diff --cached --quiet || (git commit -m "kronos forecast $(date -u +%F)" && git pull --rebase -q && git push)
