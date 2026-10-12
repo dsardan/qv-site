@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.149</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.150</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.149";
+const QE_VERSION = "15.12.150";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -10564,6 +10564,21 @@ window.QESR=(function(){
   wrap("screenStocks",function(){ return "crit"; },function(a){ return a[1]; },function(a){ return a[3]; });
   return {f:f,get:function(){ return H; },clear:function(){ H={}; save(); },isDead:isDead,dead:function(){ return Object.keys(DEAD).filter(isDead).map(function(k){ return [k,DEAD[k].n,DEAD[k].ts]; }); },revive:function(){ DEAD={}; dsave(); },skip:function(){ var r=stack[stack.length-1]; if(r) r.f.skip=(r.f.skip||0)+1; }};
 })();
+/* vc597: Crypto-trend engine (pure). Donchian ensemble after Zarattini-Pagani-Barbon, "Catching Crypto Trends" (2025): nine lookbacks on daily closes; a component is long after a close above the previous L-day closing high and stays long until a close below the channel midline (a trailing stop); signal = share of components that are long; long-only. */
+window.QECT=(function(){
+  var LS=[5,10,20,30,60,90,150,250,360];
+  function stateOf(c,L){ var st=0,n=c.length,t,k,hi,mn;
+    for(t=L;t<n;t++){ hi=-Infinity; for(k=t-L;k<t;k++){ if(c[k]>hi) hi=c[k]; }
+      if(c[t]>hi){ st=1; }
+      else if(st===1){ mn=Infinity; for(k=t-L;k<=t;k++){ if(c[k]<mn) mn=c[k]; } if(c[t]<(hi+mn)/2) st=0; } }
+    return st; }
+  function sd(c,w){ var n=c.length,r=[],i; for(i=Math.max(1,n-w);i<n;i++) r.push(c[i]/c[i-1]-1); if(r.length<5) return null; var m=0; r.forEach(function(x){ m+=x; }); m/=r.length; var v=0; r.forEach(function(x){ v+=(x-m)*(x-m); }); return Math.sqrt(v/(r.length-1)); }
+  function signal(c){ var n=c.length; if(!c||n<130) return null; var used=LS.filter(function(L){ return L<=n-10; }); if(used.length<4) return null;
+    var st=used.map(function(L){ return stateOf(c,L); }); var on=0; st.forEach(function(x){ on+=x; });
+    var v90=sd(c,90), v20=sd(c,20); if(!(v90>0)||!(v20>0)) return null;
+    return {s:on/used.length,n:on,m:used.length,vol:v90*Math.sqrt(365),sd20:v20,last:c[n-1],st:st}; }
+  return {LS:LS,signal:signal,stateOf:stateOf};
+})();
 
 </script>
 <script>
@@ -13144,6 +13159,7 @@ const I18N = {
   vx_tbl_sc:{ru:"ИИ: скальпинг",he:"AI: סקאלפינג",en:"AI: scalping"},
   vx_tbl_ai:{ru:"ИИ: сделки (свинг)",he:"AI: עסקאות (סווינג)",en:"AI: trades (swing)"},
   vx_tbl_you:{ru:"Мои сделки",he:"העסקאות שלי",en:"My trades"},
+  vx_tbl_ct:{ru:"Крипто-тренд (дневной)",he:"טרנד קריפטו (יומי)",en:"Crypto trend (daily)"},
   vx_tbl_n:{ru:"записей",he:"רשומות",en:"records"},
   vx_tbl_cl:{ru:"закрытий",he:"סגירות",en:"closes"},
   vx_tbl_none:{ru:"Пока нет сделок",he:"אין עסקאות עדיין",en:"No trades yet"},
@@ -14606,7 +14622,7 @@ function _vxApply(acct, action, ticker, qty, price, fee, by, meta){
   // lifetime counters (the journal keeps only the last 200 rows, so totals must not be derived from it)
   const base = acct.cnt || (()=>{ const h=acct.history||[]; const c={n:h.length,closes:0,wins:0,losses:0,late:0,by:{ai:{n:0,realized:0},you:{n:0,realized:0}}};
     h.forEach(x=>{ const w=(x.by==="ai")?"ai":"you"; c.by[w].n++; c.by[w].realized+=(x.realized||0)-(x.fee||0); if(Math.abs(x.realized||0)>1e-9){ c.closes++; if(((x.net!=null)?x.net:x.realized)>0) c.wins++; else c.losses++; if(x.late) c.late++; } }); return c; })();
-  const who=(by==="ai")?"ai":"you"; const cnt={ n:base.n+1, closes:base.closes, wins:base.wins, losses:base.losses, late:base.late||0,
+  const who=(by==="ai"||by==="ct")?"ai":"you"; const cnt={ n:base.n+1, closes:base.closes, wins:base.wins, losses:base.losses, late:base.late||0,
     by:{ ai:{...base.by.ai}, you:{...base.by.you} } };
   const isLate = !!(closed>0 && by==="ai" && meta.limitMin>0 && heldMin!=null && heldMin>meta.limitMin);
   cnt.by[who].n++; cnt.by[who].realized=Math.round((cnt.by[who].realized+realized-fee)*1e6)/1e6;
@@ -15199,6 +15215,51 @@ function ScanReport(props){
         e("div",{style:{fontSize:"12px",color:deadL.length?T.gold:T.gray2,fontFamily:"monospace",fontWeight:"700",marginTop:"4px"}},deadL.length?deadL.map(x=>x[0]).join(", "):tr("noDead")),
         deadL.length>0&&e("button",{onClick:()=>{ try{ window.QESR.revive(); }catch(er){} setN(x=>x+1); },style:{...btn(T.border),marginTop:"6px"}},tr("revive"))),
       e("div",{style:{fontSize:"10.8px",color:T.gray2,fontFamily:"monospace",marginTop:"8px",lineHeight:1.5}},tr("note"))));
+}
+function VxCtPanel(props){
+  const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const ui=props.ui||{}; const cfg=props.cfg||{on:true,pct:30,tv:25};
+  const [open,setOpen]=useState(false); const [cp,setCp]=useState(false); const [,setN]=useState(0); useEffect(()=>{ const id=setInterval(()=>setN(x=>x+1),2000); return ()=>clearInterval(id); },[]);
+  const X={
+    title:{ru:"📈 Крипто-тренд (Donchian-ансамбль)",he:"📈 טרנד קריפטו (אנסמבל דונצ׳יאן)",en:"📈 Crypto trend (Donchian ensemble)"},
+    on:{ru:"● ВКЛ",he:"● פועל",en:"● ON"}, off:{ru:"■ ВЫКЛ",he:"■ כבוי",en:"■ OFF"},
+    desc:{ru:"Медленная стратегия по дневным закрытиям: 9 каналов (5–360 дней). Вход — закрытие выше максимума, выход — только закрытие ниже середины канала (трейлинг-стоп) или аварийный стоп. Только лонг, размер по волатильности. Это не скальпинг: сделок немного.",he:"אסטרטגיה איטית לפי סגירות יומיות: 9 ערוצים (5–360 ימים). כניסה — סגירה מעל השיא, יציאה — רק סגירה מתחת לאמצע הערוץ (סטופ נגרר) או סטופ חירום. לונג בלבד, גודל לפי תנודתיות. זה לא סקאלפינג: מעט עסקאות.",en:"Slow strategy on daily closes: 9 channels (5–360 days). Entry — a close above the high; exit — only a close below the channel midline (trailing stop) or the emergency stop. Long-only, volatility-sized. Not scalping: few trades."},
+    pct:{ru:"Доля капитала, %",he:"אחוז מההון, %",en:"Share of equity, %"}, tv:{ru:"Цель по волатильности, % в год",he:"יעד תנודתיות, % בשנה",en:"Volatility target, % per year"},
+    last:{ru:"последний расчёт",he:"חישוב אחרון",en:"last evaluation"}, never:{ru:"ещё не считал",he:"עוד לא חושב",en:"not evaluated yet"}, ago:{ru:"назад",he:"לפני",en:"ago"},
+    run:{ru:"Пересчитать сейчас",he:"חשב עכשיו",en:"Evaluate now"}, busy:{ru:"считаю…",he:"מחשב…",en:"working…"}, copy:{ru:"Копировать",he:"העתק",en:"Copy"}, copied:{ru:"Скопировано",he:"הועתק",en:"Copied"},
+    cap:{ru:"бюджет",he:"תקציב",en:"budget"}, pos:{ru:"позиций",he:"פוזיציות",en:"positions"}, err:{ru:"ошибка",he:"שגיאה",en:"error"},
+    e_no_data:{ru:"нет дневных данных Binance/Yahoo — повторю через 10 мин",he:"אין נתונים יומיים מ-Binance/Yahoo — אנסה שוב בעוד 10 דק׳",en:"no daily data from Binance/Yahoo — retry in 10 min"},
+    lite:{ru:"данные короткие (Yahoo): часть каналов не используется",he:"נתונים קצרים (Yahoo): חלק מהערוצים לא בשימוש",en:"short data (Yahoo): some channels unused"},
+    d_enter:{ru:"ВХОД",he:"כניסה",en:"ENTER"}, d_add:{ru:"добор",he:"הוספה",en:"add"}, d_trim:{ru:"частичный выход",he:"יציאה חלקית",en:"partial exit"}, d_exit:{ru:"ВЫХОД",he:"יציאה",en:"EXIT"}, d_hold:{ru:"держу",he:"מחזיק",en:"hold"}, d_flat:{ru:"нет сигнала",he:"אין סיגנל",en:"no signal"}, d_small:{ru:"доля меньше $50",he:"פחות מ-$50",en:"under $50"}, d_busy:{ru:"занята скальпером/вручную",he:"תפוס",en:"busy (scalper/manual)"}, d_young:{ru:"листинг <400 дн.",he:"נרשם <400 ימים",en:"listed <400 d"}, d_noprice:{ru:"нет цены",he:"אין מחיר",en:"no price"}, d_nocash:{ru:"мало кэша",he:"מעט מזומן",en:"low cash"}, d_refused:{ru:"отказ",he:"נדחה",en:"refused"},
+    test:{ru:"Исторический тест (BTC+ETH, 2016–2026, комиссия 0.10 %/сторона, данные Coin Metrics): ≈+47 %/год, Sharpe ≈1.7, просадка ≈−25 % против buy&hold +99 %/год и −88 %. Но 2021–2023: +22 % против +32 %; 2024–2026: +12 % против +14 % (просадка −22 % против −55 %). Это история, не гарантия.",he:"בדיקה היסטורית (BTC+ETH, 2016–2026, עמלה 0.10% לצד, נתוני Coin Metrics): ≈+47% בשנה, Sharpe ≈1.7, ירידה מקסימלית ≈−25% מול buy&hold +99% ו-−88%. אך 2021–2023: +22% מול +32%; 2024–2026: +12% מול +14% (ירידה −22% מול −55%). זו היסטוריה, לא ערובה.",en:"Historical test (BTC+ETH, 2016–2026, 0.10 %/side fees, Coin Metrics data): ≈+47 %/yr, Sharpe ≈1.7, drawdown ≈−25 % vs buy&hold +99 %/yr and −88 %. But 2021–2023: +22 % vs +32 %; 2024–2026: +12 % vs +14 % (drawdown −22 % vs −55 %). History, not a guarantee."}
+  };
+  const tr=(k)=>(X[k]&&(X[k][LG]||X[k].ru))||k;
+  const agoS=(ts)=>{ if(!ts) return tr("never"); const d=Math.round((Date.now()-ts)/1000); return (d<90?d+" s":(d<5400?Math.round(d/60)+" min":Math.round(d/3600)+" h"))+" "+tr("ago"); };
+  const rows=ui.rows||[];
+  const txt=()=>"QuantView crypto-trend · "+new Date().toLocaleString()+"\n"+tr("last")+": "+agoS(ui.ts)+" · "+tr("cap")+": $"+(ui.cap||0)+(ui.err?(" · "+tr("err")+": "+ui.err):"")+"\n"+rows.map(r=>r.tk.replace("-USD","")+": "+(r.s!=null?(r.n+"/"+r.m+" vol "+r.vol+" tgt $"+r.tgt+" now $"+r.cur):"")+" "+tr("d_"+r.dec)).join("\n");
+  const copy=()=>{ const t=txt(); const ok=()=>{ setCp(true); setTimeout(()=>setCp(false),2000); }; try{ navigator.clipboard.writeText(t).then(ok); }catch(er){ try{ const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); ok(); }catch(e2){} } };
+  const btn=(c)=>({background:T.bg2,border:`1px solid ${c}`,color:c===T.border?T.white:c,borderRadius:"9px",padding:"7px 11px",fontSize:"12px",fontFamily:"monospace",fontWeight:"800",cursor:"pointer"});
+  const inp={background:T.bg2,border:`1px solid ${T.border}`,color:T.white,borderRadius:"8px",padding:"5px 8px",fontSize:"12px",fontFamily:"monospace",width:"64px"};
+  const num=(k,min,max)=>e("input",{type:"number",inputMode:"decimal",min:min,max:max,value:cfg[k],"data-testid":"ct-"+k,onChange:ev=>{ const v=parseFloat(ev.target.value); if(isFinite(v)) props.onCfg({[k]:Math.min(max,Math.max(min,v))}); },style:inp});
+  return e("div",{"data-testid":"ctpanel",style:{background:T.bg1,border:`1px solid ${cfg.on?T.green:T.border}66`,borderRadius:"12px",padding:"10px 12px",marginBottom:"12px"}},
+    e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px"}},
+      e("div",{style:{fontSize:"14px",color:T.green,fontFamily:"monospace",fontWeight:"900"}},tr("title")),
+      e("button",{onClick:()=>props.onCfg({on:!cfg.on}),"data-testid":"ct-toggle","aria-pressed":cfg.on?"true":"false",style:{...btn(cfg.on?T.green:T.gray2)}},cfg.on?tr("on"):tr("off"))),
+    e("div",{style:{fontSize:"11.2px",color:T.gray1,fontFamily:"monospace",lineHeight:1.5,margin:"6px 0"}},tr("desc")),
+    e("div",{style:{display:"flex",gap:"14px",flexWrap:"wrap",alignItems:"center",margin:"6px 0"}},
+      e("label",{style:{fontSize:"11.5px",color:T.gray1,fontFamily:"monospace",display:"flex",gap:"6px",alignItems:"center"}},tr("pct"),num("pct",0,100)),
+      e("label",{style:{fontSize:"11.5px",color:T.gray1,fontFamily:"monospace",display:"flex",gap:"6px",alignItems:"center"}},tr("tv"),num("tv",5,100))),
+    e("div",{style:{fontSize:"11.5px",color:T.gray1,fontFamily:"monospace",lineHeight:1.5}},tr("last")+": "+agoS(ui.ts)+" · "+tr("cap")+": $"+(ui.cap||0)+" · "+tr("pos")+": "+(ui.pos||0)),
+    ui.err&&e("div",{"data-testid":"ct-err",style:{fontSize:"11.5px",color:T.red,fontFamily:"monospace",marginTop:"3px"}},tr("err")+": "+(X["e_"+ui.err]?tr("e_"+ui.err):ui.err)),
+    ui.lite&&e("div",{style:{fontSize:"11px",color:T.gold,fontFamily:"monospace",marginTop:"3px"}},tr("lite")),
+    e("div",{style:{display:"flex",gap:"8px",flexWrap:"wrap",marginTop:"8px"}},
+      e("button",{onClick:props.onEval,disabled:!!ui.busy,"data-testid":"ct-eval",style:{...btn(T.cyan),opacity:ui.busy?0.6:1}},ui.busy?tr("busy"):tr("run")),
+      e("button",{onClick:()=>setOpen(!open),"data-testid":"ct-more",style:btn(T.border)},(open?"▾ ":"▸ ")+"Σ"),
+      e("button",{onClick:copy,style:btn(T.border)},cp?("✓ "+tr("copied")):tr("copy"))),
+    open&&e("div",{"data-testid":"ct-rows",style:{marginTop:"8px",paddingTop:"6px",borderTop:`1px solid ${T.border}`}},
+      rows.map((r,i)=>e("div",{key:i,style:{display:"flex",justifyContent:"space-between",gap:"8px",fontSize:"11.5px",fontFamily:"monospace",color:(r.dec==="enter"||r.dec==="add")?T.green:((r.dec==="exit"||r.dec==="trim"||r.dec==="refused")?T.red:T.gray1),lineHeight:1.5}},
+        e("span",null,r.tk.replace("-USD","")+(r.s!=null?(" "+r.n+"/"+r.m):"")),
+        e("span",{style:{textAlign:"end"}},(r.s!=null?("$"+r.cur+" → $"+r.tgt+" · "):"")+tr("d_"+r.dec)))),
+      e("div",{style:{fontSize:"10.8px",color:T.gray2,fontFamily:"monospace",marginTop:"8px",lineHeight:1.5}},tr("test"))));
 }
 function VxNetCheck(props){
   const e=React.createElement; const T=props.T; const LG=props.LANG||"ru";
@@ -19405,6 +19466,7 @@ function App(){
   const TB=()=>Object.assign({scanMs:4000,thMs:3000,warmPts:4,warmMs:12000,minHold:6000,rev:2,maxT:(()=>{ try{ const v=parseInt(localStorage.getItem("qe_turbo_max")); return (v>=1&&v<=10)?v:4; }catch(e){ return 4; } })()},window.__tbCfg||{});
   const [tbOnUi,setTbOnUi]=useState(()=>{ try{ return localStorage.getItem("qe_turbo")!=="0"; }catch(e){ return true; } });
   const [tbUi,setTbUi]=useState(null);
+  const [ctUi,setCtUi]=useState(null); const [ctCfg,setCtCfgS]=useState(()=>{ let on=true,pct=30,tv=25; try{ on=localStorage.getItem("qe_ct_on")!=="0"; const p=parseFloat(localStorage.getItem("qe_ct_pct")); if(p>=0&&p<=100) pct=p; const v=parseFloat(localStorage.getItem("qe_ct_tv")); if(v>=5&&v<=100) tv=v; }catch(e){} return {on:on,pct:pct,tv:tv}; });
   const tbRef=useRef({buf:{},cool:{},watch:[],wTs:0,rr:0,thr:{},n:0,flips:0,net:0,ts:0,scanBusy:false,pubTs:0});
   const _tbPub=(force)=>{ const R=tbRef.current, now=Date.now(); if(!force&&now-R.pubTs<1000) return; R.pubTs=now; try{ const thr=Object.keys(R.thr).filter(k=>R.thr[k].alive).map(k=>{ const h=R.thr[k]; return {tk:k,id:h.id,side:h.side,ms:h.lastMs,tick:h.ticks,fav:h.fav,errs:h.errs}; }); setTbUi({thr:thr,n:R.n,flips:R.flips,net:+R.net.toFixed(2),ts:now,mst:R.mst||{},why:R.why||"",rep:R.rep||{}}); }catch(e){} };
   const _tbMicro=(b,now,cr)=>{ if(!b||b.length<TB().warmPts||now-b[0].t<TB().warmMs) return null; const p=b[b.length-1].p;
@@ -19474,6 +19536,55 @@ function App(){
     finally{ sg.busy=false; try{ _tbPub(true); }catch(e){} } };
   const _tbGuideTick=()=>{ const R=tbRef.current; const sg=R.sg||(R.sg={ts:0,list:[],via:"",busy:false,err:"",tries:0}); if(sg.busy) return; const now=Date.now(); let open=false; try{ open=window.QEHours.isOpen("US"); }catch(e){ open=true; }
     const ttl=!sg.list.length?(sg.tries===0?0:60000):(open?600000:1800000); if(now-sg.ts>=ttl) _tbGuide(); };
+  /* ===== vc597: Crypto Trend (Donchian ensemble, daily). Long-only, vol-targeted. Positions are opened with by:"ct" and carry no AI thesis, so the swing manager, the scalpers and the watchdogs leave them alone. Exits happen only through the trailing channel (components dropping out) or the catastrophe stop. ===== */
+  const CT_STABLE={USDT:1,USDC:1,FDUSD:1,TUSD:1,BUSD:1,DAI:1,USDP:1,USDE:1,PYUSD:1,EUR:1,AEUR:1,WBTC:1,WBETH:1,BFUSD:1,XUSD:1,USD1:1};
+  const _ctCfg=()=>{ let on=true,pct=30,tv=25; try{ on=localStorage.getItem("qe_ct_on")!=="0"; const p=parseFloat(localStorage.getItem("qe_ct_pct")); if(p>=0&&p<=100) pct=p; const v=parseFloat(localStorage.getItem("qe_ct_tv")); if(v>=5&&v<=100) tv=v; }catch(e){} return {on:on,pct:pct,tv:tv}; };
+  const _ctKey=()=>_vxKey().replace("qe_vexchange_","qe_ct_st_");
+  const _ctLoad=()=>{ try{ const o=JSON.parse(_lsGet(_ctKey())||"null"); return o&&typeof o==="object"?{sig:o.sig||{},pos:o.pos||{},log:o.log||[],ts:o.ts||0,rows:o.rows||[],err:o.err||"",lite:!!o.lite,eq:o.eq||0,cap:o.cap||0,day:o.day||""}:{sig:{},pos:{},log:[],ts:0,rows:[],err:"",lite:false,eq:0,cap:0,day:""}; }catch(e){ return {sig:{},pos:{},log:[],ts:0,rows:[],err:"",lite:false,eq:0,cap:0,day:""}; } };
+  const _ctSave=(S)=>{ try{ _lsSet(_ctKey(),JSON.stringify(S)); }catch(e){} };
+  const _ctPub=(S)=>{ try{ setCtUi({ts:S.ts,rows:S.rows,err:S.err,lite:S.lite,eq:S.eq,cap:S.cap,log:S.log.slice(-8),pos:Object.keys(S.pos).length,busy:!!tbRef.current.ctBusy}); }catch(e){} };
+  const _ctTrade=(tk,side,qty,px,why)=>{ const acct=_tbAcct(); if(!acct||!(qty>0)||!(px>0)) return null; const p=acct.positions.find(x=>x.ticker===tk&&x.qty!==0); const openTs=(p&&p.openTs)||Date.now();
+    let r; try{ r=_vxApply(acct,side,tk,qty,px,_vxFeeFor(qty,px,tk),"ct",{limitMin:0,reason:"ct_"+why,openTs:openTs}); }catch(e){ r={ok:false,error:String(e&&e.message||e)}; }
+    if(!r.ok){ try{ window.QEVXLog.log("WARN","ct.refused",{tk:tk,side:side,why:why,err:r.error}); }catch(e){} return null; }
+    _saveVX(r.acct); setVxPrices(prev=>({...prev,[tk]:px})); try{ window.QEVXLog.log("INFO","ct."+(side==="buy"?"buy":"sell"),{tk:tk,qty:+qty.toFixed(6),px:+px.toPrecision(7),why:why,net:r.net!=null?+r.net.toFixed(2):null}); }catch(e){} return r; };
+  const _ctEval=async(force)=>{ const R=tbRef.current; if(R.ctBusy) return; const cfg=_ctCfg(); if(!cfg.on&&!force) return; R.ctBusy=true; const S=_ctLoad(); const nowT=Date.now(); S.err=""; S.lite=false; const rows=[];
+    try{ _ctPub(S); const acct0=_tbAcct(); if(!acct0) throw new Error("no_account"); const mem=_loadAi();
+      try{ window.QEBin.refreshIf(300000); }catch(e){}
+      let uni=["BTC-USD","ETH-USD"]; let tp=null; try{ tp=window.QEBin.top(40); }catch(e){} (tp&&tp.length>=8?tp:SC_CRYPTO).forEach(x=>{ const b=String(x).replace("-USD",""); if(!CT_STABLE[b]&&uni.indexOf(x)<0&&uni.length<8) uni.push(x); });
+      acct0.positions.forEach(p=>{ if(p.by==="ct"&&p.qty>0&&uni.indexOf(p.ticker)<0) uni.push(p.ticker); });
+      const data={}; let ix=0; const todayUtc=new Date().toISOString().slice(0,10);
+      const worker=async()=>{ while(ix<uni.length){ const tk=uni[ix++]; try{ let b=await window.QEBin.klines(tk,"1d",720); const last=b[b.length-1]; if(last&&last.t+864e5>Date.now()) b=b.slice(0,-1); if(b.length>=130) data[tk]=b.map(x=>x.close); else throw new Error("short"); }
+          catch(e){ try{ const rws=await window.EWEngine.fetchOHLC(tk); if(rws&&rws.length>=130){ let c=rws.slice(); if(c[c.length-1].date===todayUtc) c=c.slice(0,-1); data[tk]=c.map(x=>x.close); S.lite=true; } }catch(e2){} } } };
+      await Promise.all([worker(),worker(),worker(),worker()]);
+      const sigs={}; uni.forEach(tk=>{ const c=data[tk]; if(!c) return; const held=acct0.positions.some(p=>p.ticker===tk&&p.by==="ct"&&p.qty>0); if(c.length<400&&!held&&!S.lite) { rows.push({tk:tk,dec:"young",bars:c.length}); return; } const g=window.QECT.signal(c); if(g) sigs[tk]=g; });
+      if(!Object.keys(sigs).length) throw new Error("no_data");
+      const wRaw={}; let sumW=0; Object.keys(sigs).forEach(tk=>{ const g=sigs[tk]; const w=Math.min(0.4,g.s*(cfg.tv/100)/Math.max(0.05,g.vol)); wRaw[tk]=w; sumW+=w; }); const scl=sumW>1?1/sumW:1;
+      const px={}; await Promise.all(Object.keys(sigs).map(tk=>_tbQuote(tk).then(q=>{ if(q&&q.price>0) px[tk]=q.price; }).catch(()=>{})));
+      const acct1=_tbAcct(); const pm={...vxPricesRef.current,...px}; const eq=_vxEquity(acct1,pm).equity; const CAP=Math.max(0,cfg.pct/100*eq); S.eq=Math.round(eq); S.cap=Math.round(CAP);
+      for(const tk of Object.keys(sigs)){ const g=sigs[tk]; const price=px[tk]; const a=_tbAcct(); const p=a.positions.find(x=>x.ticker===tk&&x.qty!==0); const th=mem.open&&mem.open[tk]; const ctPos=!!(p&&p.by==="ct"&&p.qty>0); const tgt=CAP*wRaw[tk]*scl; const prevS=(S.sig[tk]&&S.sig[tk].s)||0; const cur=ctPos&&price>0?p.qty*price:0;
+        const row={tk:tk,s:+g.s.toFixed(3),n:g.n,m:g.m,vol:+g.vol.toFixed(2),tgt:Math.round(tgt),cur:Math.round(cur),dec:"hold"};
+        if(!(price>0)){ row.dec="noprice"; rows.push(row); continue; }
+        if((p&&!ctPos)||(th&&th.scalp)){ row.dec="busy"; rows.push(row); S.sig[tk]={s:g.s,n:g.n,m:g.m,ts:nowT}; continue; }
+        if(!ctPos){
+          if(g.s>0&&tgt>=50){ const capCash=Math.max(0,a.cash-0.05*eq); const notional=Math.min(tgt,capCash); if(notional>=50){ const qty=Math.floor(notional/price*1e6)/1e6; const r=_ctTrade(tk,"buy",qty,price,"enter"); if(r){ row.dec="enter"; row.cur=Math.round(qty*price); const p2=r.acct.positions.find(x=>x.ticker===tk); S.pos[tk]={stop:+(p2.avg*(1-Math.min(0.25,Math.max(0.06,4*g.sd20)))).toFixed(6),ts:nowT,avg:p2.avg,sd:+g.sd20.toFixed(4)}; } else row.dec="refused"; } else row.dec="nocash"; }
+          else row.dec=g.s>0?"small":"flat"; }
+        else {
+          if(g.s<prevS-1e-9||g.s===0){
+            if(g.s===0){ const r=_ctTrade(tk,"sell",p.qty,price,"exit"); if(r){ row.dec="exit"; row.cur=0; delete S.pos[tk]; } else row.dec="refused"; }
+            else if(cur-tgt>0.1*cur&&cur-tgt>=50){ const qty=Math.min(p.qty,Math.floor((cur-tgt)/price*1e6)/1e6); const r=_ctTrade(tk,"sell",qty,price,"trim"); if(r){ row.dec="trim"; row.cur=Math.round(cur-qty*price); } else row.dec="refused"; } }
+          else if(g.s>prevS+1e-9&&tgt>cur*1.1&&tgt-cur>=50){ const capCash=Math.max(0,a.cash-0.05*eq); const notional=Math.min(tgt-cur,capCash); if(notional>=50){ const qty=Math.floor(notional/price*1e6)/1e6; const r=_ctTrade(tk,"buy",qty,price,"add"); if(r){ row.dec="add"; row.cur=Math.round(cur+qty*price); const p2=r.acct.positions.find(x=>x.ticker===tk); S.pos[tk]={stop:+(p2.avg*(1-Math.min(0.25,Math.max(0.06,4*g.sd20)))).toFixed(6),ts:(S.pos[tk]&&S.pos[tk].ts)||nowT,avg:p2.avg,sd:+g.sd20.toFixed(4)}; } else row.dec="refused"; } else row.dec="nocash"; } }
+        S.sig[tk]={s:g.s,n:g.n,m:g.m,ts:nowT}; rows.push(row); }
+      S.ts=nowT; S.day=todayUtc; S.rows=rows; S.log=(S.log||[]).concat([{ts:nowT,txt:rows.filter(r=>r.dec==="enter"||r.dec==="add"||r.dec==="trim"||r.dec==="exit").map(r=>r.dec+" "+r.tk).join(", ")||"hold"}]).slice(-30);
+      try{ window.QEVXLog.log("INFO","ct.eval",{coins:rows.length,lite:S.lite,cap:S.cap,rows:rows.map(r=>r.tk.replace("-USD","")+":"+(r.s!=null?r.s:"-")+"/"+r.dec).join(" ")}); }catch(e){}
+    }catch(e){ S.err=String(e&&e.message||e).slice(0,120); S.ts=nowT; S.rows=rows; try{ window.QEVXLog.err("ct.eval",e); }catch(_){} }
+    finally{ R.ctBusy=false; _ctSave(S); _ctPub(S); } };
+  const _ctGuard=async()=>{ const R=tbRef.current; if(R.ctBusy||R.ctGBusy) return; R.ctGBusy=true; try{ const S=_ctLoad(); const tks=Object.keys(S.pos||{}); if(!tks.length) return; let dirty=false;
+      for(const tk of tks){ const a=_tbAcct(); const p=a&&a.positions.find(x=>x.ticker===tk&&x.qty>0&&x.by==="ct"); if(!p){ delete S.pos[tk]; dirty=true; continue; } let price=0; try{ const q=await _tbQuote(tk); if(q&&q.price>0) price=q.price; }catch(e){} if(!(price>0)) continue; const st=S.pos[tk].stop;
+        if(st>0&&price<=st){ const r=_ctTrade(tk,"sell",p.qty,price,"stop"); if(r){ delete S.pos[tk]; delete S.sig[tk]; dirty=true; S.log=(S.log||[]).concat([{ts:Date.now(),txt:"stop "+tk}]).slice(-30); } } }
+      if(dirty){ _ctSave(S); _ctPub(S); } }catch(e){} finally{ R.ctGBusy=false; } };
+  const _ctDue=()=>{ const cfg=_ctCfg(); if(!cfg.on) return; const S=_ctLoad(); const nowT=Date.now(); const today=new Date().toISOString().slice(0,10); if(S.day!==today||nowT-S.ts>6*3600e3||(S.err&&nowT-S.ts>600000)) _ctEval(false); };
+  const _setCt=(patch)=>{ setCtCfgS(prev=>{ const n={...prev,...patch}; try{ localStorage.setItem("qe_ct_on",n.on?"1":"0"); localStorage.setItem("qe_ct_pct",String(n.pct)); localStorage.setItem("qe_ct_tv",String(n.tv)); }catch(e){} return n; }); };
+  try{ window.__ctDebug={eval:_ctEval,guard:_ctGuard,state:_ctLoad,due:_ctDue}; }catch(e){}
   const _tbRp=(M)=>{ const R=tbRef.current; return (R.rep=R.rep||{})[M]||(R.rep[M]={scans:0,qOk:0,qFail:0,sig:0,coolBlk:0,full:0,openOk:0,openFail:0,lastOpen:0,lastOk:0,err:"",errTs:0,rows:[],ts:0,w:0,watch:[]}); };
   const _tbGuideInfo=()=>{ const sg=tbRef.current.sg||{}; return {n:(sg.list||[]).length,via:sg.via||"",ts:sg.ts||0,busy:!!sg.busy,err:sg.err||"",top:(sg.list||[]).slice(0,10).map(x=>x.tk+(x.g?("/"+x.g):"")+":"+Math.round(x.q))}; };
   const _tbScanMkt=async(M,C,mst)=>{ const R=tbRef.current; const acct=_tbAcct(); if(!acct) return; const mem=_loadAi(); const CRm=M==="CR"; R.wm=R.wm||{};
@@ -19505,6 +19616,7 @@ function App(){
     R.scanBusy=true; R.busyTs=Date.now();
     try{ const C=TB(); for(let i=0;i<mk.length;i++){ try{ await _tbScanMkt(mk[i],C,mst); }catch(e){ try{ const rr=(R.rep=R.rep||{})[mk[i]]; if(rr){ rr.err=String(e&&e.message||e).slice(0,160); rr.errTs=Date.now(); } window.QEVXLog.err("tb.scan."+mk[i],e); }catch(_){} } } R.mst=mst; R.ts=Date.now(); _tbPub(false);
     }catch(e){ try{ window.QEVXLog.err("tb.scan",e); }catch(_){} } finally{ R.scanBusy=false; } };
+  useEffect(()=>{ if(!authUser) return; try{ setTimeout(()=>{ _ctPub(_ctLoad()); },200); }catch(e){} const t0=setTimeout(()=>{ try{ _ctDue(); }catch(e){} },20000); const idD=setInterval(()=>{ try{ _ctDue(); }catch(e){} },60000); const idG=setInterval(()=>{ try{ _ctGuard(); }catch(e){} },15000); return ()=>{ clearTimeout(t0); clearInterval(idD); clearInterval(idG); }; },[authUser]);
   useEffect(()=>{ if(!authUser) return; const wl={s:null};
     const wantWl=()=>{ try{ return !!(scalpOnRef.current&&_tbOn()&&localStorage.getItem("qe_tb_wake")!=="0"&&(_tbMktOn("CR")||_tbMktOn("ST"))); }catch(e){ return false; } };
     const getWl=async()=>{ try{ if(!wantWl()){ if(wl.s){ try{ wl.s.release(); }catch(e){} wl.s=null; } return; } if(document.visibilityState!=="visible"||!navigator.wakeLock||wl.s) return; wl.s=await navigator.wakeLock.request("screen"); try{ wl.s.addEventListener("release",()=>{ wl.s=null; }); }catch(e){} try{ window.QEVXLog.log("INFO","tb.wakelock",{on:1}); }catch(e){} }catch(e){ wl.s=null; } };
@@ -19793,7 +19905,7 @@ function App(){
         // ── position cap (default 10): at the cap a NEW name must beat the weakest holding by expected value, which is then rotated out ──
         try{ if(dec && !dec.skip && (dec.why==="long"||dec.why==="short")){
           const MAXP=(()=>{ try{ const v=parseInt(localStorage.getItem("qe_vx_maxpos")); return v>=1&&v<=100?v:10; }catch(e){ return 10; } })();
-          const nPos=acct.positions.filter(p=>!(mem.open&&mem.open[p.ticker]&&mem.open[p.ticker].scalp)).length;
+          const nPos=acct.positions.filter(p=>p.by!=="ct"&&!(mem.open&&mem.open[p.ticker]&&mem.open[p.ticker].scalp)).length;   /* vc597: Crypto-Trend holdings have their own bucket */
           if(nPos>=MAXP){
             const candEv=(exp!=null&&isFinite(exp))?exp:0; let worst=null;
             acct.positions.forEach(p=>{ if(p.by!=="ai") return; const th=mem.open&&mem.open[p.ticker]; if(!th||th.scalp) return; const px0=vxPricesRef.current&&vxPricesRef.current[p.ticker]; if(!(px0>0)) return;
@@ -19810,7 +19922,7 @@ function App(){
         // vc521: cash discipline. Log 2026-10-07 21:01: five entries took ~$71k of $72k in ONE session; every later "buy" then failed in _vxApply (no_cash) silently — "plays at zero".
         // Keep a 10% equity reserve and spread free cash over the remaining position slots (×1.5 tilt); shrink the order to fit, or skip with an explicit reason.
         try{ if(dec && !dec.skip && !dec.rotate && (dec.why==="long"||dec.why==="short"||dec.why==="add")){
-          const eqN=_vxEquity(acct,{...vxPricesRef.current,...pm}).equity; let scalpRes=0; try{ const sp=_scPct(); if(sp>0){ let used=0; acct.positions.forEach(p=>{ const t2=mem.open&&mem.open[p.ticker]; if(t2&&t2.scalp) used+=Math.abs(p.qty)*p.avg; }); scalpRes=Math.max(0,sp/100*eqN-used); } }catch(e){}   // vc535: the unused part of the scalping bucket is not available to swing trades
+          const eqN=_vxEquity(acct,{...vxPricesRef.current,...pm}).equity; let scalpRes=0; try{ const sp=_scPct(); if(sp>0){ let used=0; acct.positions.forEach(p=>{ const t2=mem.open&&mem.open[p.ticker]; if(t2&&t2.scalp) used+=Math.abs(p.qty)*p.avg; }); scalpRes=Math.max(0,sp/100*eqN-used); } }catch(e){} try{ const cc=_ctCfg(); if(cc.on&&cc.pct>0){ let uc=0; acct.positions.forEach(p=>{ if(p.by==='ct'&&p.qty>0) uc+=p.qty*p.avg; }); scalpRes+=Math.max(0,cc.pct/100*eqN-uc); } }catch(e){}   // vc535: the unused part of the scalping bucket is not available to swing trades
           const reserve=0.10*eqN+scalpRes; const avail=acct.cash-reserve;
           const MAXPc=(()=>{ try{ const v=parseInt(localStorage.getItem("qe_vx_maxpos")); return v>=1&&v<=100?v:10; }catch(e){ return 10; } })();
           const slots=Math.max(1,MAXPc-acct.positions.length+(dec.why==="add"?1:0));
@@ -21651,6 +21763,7 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
               e(VxScalpMon,{T:T,LANG:LANG,tb:tbUi,mk:tbMk,scalpOn:scalpOn,hb:()=>tbRef.current.hb,
                 onMaster:()=>{ const v=!scalpOn; setScalpOnS(v); try{ localStorage.setItem("qe_vx_scalp",v?"1":"0"); }catch(x){} try{ window.QEVXLog.log("INFO","tb.master",{on:v}); }catch(x){} setTimeout(()=>{ try{ _tbScan(); }catch(x){} },50); },
                 onMk:_setTbMk}),
+              e(VxCtPanel,{T:T,LANG:LANG,ui:ctUi,cfg:ctCfg,onCfg:_setCt,onEval:()=>_ctEval(true)}),
               e(VxAlpPanel,{T:T,LANG:LANG}),
               e(VxNetCheck,{T:T,LANG:LANG}),
               e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}},
@@ -21876,7 +21989,7 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
                 e(VxTip,{T:T,txt:t("vx_exec_note")}),
               ),
               (vxAcct.history&&vxAcct.history.length>0)&&e(VxSec,{id:"journal",T:T,LANG:LANG,def:false,badge:vxAcct.history.length},
-                [["sc","⚡ "+t("vx_tbl_sc"),T.gold,h=>h.by==="ai"&&(h.scalp||/^scalp/.test(h.reason||""))],["ai","🤖 "+t("vx_tbl_ai"),T.green,h=>h.by==="ai"&&!(h.scalp||/^scalp/.test(h.reason||""))],["you","👤 "+t("vx_tbl_you"),T.cyan,h=>h.by!=="ai"]].map(tb=>{
+                [["sc","⚡ "+t("vx_tbl_sc"),T.gold,h=>h.by==="ai"&&(h.scalp||/^scalp/.test(h.reason||""))],["ai","🤖 "+t("vx_tbl_ai"),T.green,h=>h.by==="ai"&&!(h.scalp||/^scalp/.test(h.reason||""))],["ct","📈 "+t("vx_tbl_ct"),T.green,h=>h.by==="ct"],["you","👤 "+t("vx_tbl_you"),T.cyan,h=>h.by!=="ai"&&h.by!=="ct"]].map(tb=>{
                   const all=(vxAcct.history||[]).filter(tb[3]); const cl=all.filter(h=>h.net!=null); const sum=cl.reduce((a,h)=>a+h.net,0), fees=all.reduce((a,h)=>a+(h.fee||0),0), w=cl.filter(h=>h.net>0).length;
                   return e("div",{key:tb[0],style:{marginBottom:"10px",border:`1px solid ${tb[2]}55`,borderRadius:"9px",padding:"6px"}},
                     e("div",{style:{fontSize:"12.8px",fontFamily:"monospace",fontWeight:"800",color:tb[2]}},tb[1]),
