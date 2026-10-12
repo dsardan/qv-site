@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.144</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.145</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.144";
+const QE_VERSION = "15.12.145";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -19325,11 +19325,10 @@ function App(){
     const sd=p.qty>0?1:-1; h.side=sd>0?"long":"short"; const qn=Math.abs(p.qty), exitFee=_vxFeeFor(qn,px,tk); const netUsd=sd*(px-p.avg)*qn-exitFee-(p.fees||0); const fav=sd*(px-p.avg)/p.avg*100; h.fav=+fav.toFixed(3);
     if(fav>(th.pk||0)){ th.pk=+fav.toFixed(4); if(!h.pkSave||now-h.pkSave>15000){ h.pkSave=now; _saveAi(mem); } }
     const heldMs=now-(p.openTs||th.ts||now); const m=_tbMicro(buf,now,_isCryptoTk(tk)); if(m&&(m.rv===-sd||m.dir===-sd)) h.rev++; else h.rev=0;
-    let act=null; if(th.stop>0&&sd*(px-th.stop)<=0) act="cut"; else if(th.target>0&&sd*(px-th.target)>=0&&netUsd>0) act="take"; else if(netUsd>0&&(th.pk||0)>=0.05&&fav<=th.pk*0.55) act="tb_trail"; else if(h.rev>=C.rev&&heldMs>=C.minHold) act="tb_flip";
+    let act=null; if(th.stop>0&&sd*(px-th.stop)<=0) act="cut"; else if(th.target>0&&sd*(px-th.target)>=0&&netUsd>0) act="take"; else if(netUsd>0&&(th.pk||0)>=0.05&&fav<=th.pk*0.55) act="tb_trail";;   // vc592: no reversal exit — exits only at profit (target/trail) or stop
     if(!act) return;
     const c=_tbClose(tk,px,act); if(!c) return; h.alive=false;
-    if(act==="tb_flip"){ const R=tbRef.current; h.flipT=(h.flipT||[]).filter(x=>now-x<60000); h.flipT.push(now); R.flips++; if(h.flipT.length<=3&&_tbOn()&&scalpOnRef.current&&(!_isCryptoTk(tk)||(m&&m.dir===-sd))&&_tbOpen(tk,-sd,px,m||{mv:0,band:0.05})){ h.side=sd>0?"short":"long"; h.alive=true; h.rev=0; h.fav=0; h.keepBuf=true; } else { R.cool[tk]=now+60000; } }
-    else { tbRef.current.cool[tk]=now+10000; }
+    tbRef.current.cool[tk]=now+10000;
     try{ const R2=tbRef.current; R2.recent=R2.recent||{}; R2.recent[tk]=now; }catch(e){}
     _tbPub(true); };
   const _tbSpawn=(tk)=>{ const R=tbRef.current; const old=R.thr[tk]; if(old&&old.alive) return old; const h={tk:tk,id:"t"+Date.now().toString(36).slice(-4)+tk,alive:true,ticks:0,errs:0,rev:0,gap:_tbGap(tk,TB()),side:"",fav:0,lastMs:0,flipT:[],born:Date.now(),lastRun:Date.now(),busy:false,busyT:0}; R.thr[tk]=h;
