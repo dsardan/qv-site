@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.151</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.152</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.151";
+const QE_VERSION = "15.12.152";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -972,7 +972,7 @@ const US_SECTORS = {
 const US_EXTRA = [
   // Technology / semis / software
   "ADSK","AME","APH","CDW","FISV","FICO","GLW","HPQ","HPE","IT","JBL","KEYS","MCHP","MSI",
-  "MPWR","NTAP","PTC","STX","SWKS","TDY","TER","TRMB","TYL","WDC","ZBRA","AKAM","JNPR","FFIV",
+  "MPWR","NTAP","PTC","STX","SWKS","TDY","TER","TRMB","TYL","WDC","ZBRA","AKAM","FFIV",
   "GEN","EPAM","GDDY","PAYC","PAYX","BR","JKHY","VRSN","ANET","TEL","GRMN",
   // Communication services
   "FOXA","FOX","NWSA","PSKY",
@@ -982,7 +982,7 @@ const US_EXTRA = [
   // Consumer staples
   "BG","CAG","CHD","CLX","CPB","EL","HRL","LW","MKC","TAP","TSN","KVUE","SJM",
   // Financials
-  "AIG","AFL","ALL","AJG","AMP","BEN","BK","BRO","CBOE","CFG","CINF","CME","DFS","FITB","GL",
+  "AIG","AFL","ALL","AJG","AMP","BEN","BK","BRO","CBOE","CFG","CINF","CME","FITB","GL",
   "HBAN","HIG","IVZ","KEY","L","MCO","MKTX","MMC","MSCI","NDAQ","NTRS","PFG","PRU","RF","RJF",
   "SYF","TFC","TROW","TRV","WTW","WRB","ACGL","STT","FDS","EG",
   // Healthcare
