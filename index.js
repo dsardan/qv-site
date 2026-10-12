@@ -19,7 +19,7 @@ import { inviteApi, joinPage, hasAccess, closedPage } from "./invite.js";
 //   • per-host cache TTL (quotes must not be cached for a minute) and per-host headers.
 // Usage:  GET  https://<relay>/?url=<encoded https url>      GET /health      WS /ws/binance
 
-const VERSION = "2.2";   // 2.2: invitation-only /app/ + owner invite API   // 2.1: also serves the static site (./site) on non-relay hosts
+const VERSION = "2.3";   // 2.2: invitation-only /app/ + owner invite API   // 2.1: also serves the static site (./site) on non-relay hosts
 
 // host → policy.  ttl: edge cache seconds (0 = never cache).  ref: Referer to send.  auth: forward Authorization.
 const POLICY = {

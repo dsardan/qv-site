@@ -15,7 +15,7 @@ function safeEq(a, b) {          // constant-time compare
   for (let i = 0; i < Math.max(a.length, b.length); i++) d |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
   return d === 0;
 }
-const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
+const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
   "Access-Control-Allow-Headers": "authorization,content-type", "Access-Control-Max-Age": "86400" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...CORS, "Content-Type": "application/json", "Cache-Control": "no-store" } });
 const newId = () => b64u(crypto.getRandomValues(new Uint8Array(16)));
@@ -31,7 +31,7 @@ async function isAdmin(req, env) {
   return true;
 }
 
-// ---- API (any host): POST /api/invite · GET /api/invites · DELETE /api/invite/<id>
+// ---- API (any host): POST /api/invite · GET /api/invites · PATCH|DELETE /api/invite/<id>
 export async function inviteApi(req, env, url) {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (!env.INVITES) return json({ ok: false, error: "kv_missing" }, 503);
@@ -55,6 +55,19 @@ export async function inviteApi(req, env, url) {
     return json({ ok: true, items });
   }
   const m = /^\/api\/invite\/([A-Za-z0-9_-]{10,40})$/.exec(p);
+  if (m && req.method === "PATCH") {   // v2.3: change uses / validity / label of an existing invitation (owner only)
+    const raw = await env.INVITES.get("inv:" + m[1]); let inv = null; try { inv = raw && JSON.parse(raw); } catch (e) {}
+    if (!inv) return json({ ok: false, error: "not_found" }, 404);
+    let b = {}; try { b = await req.json(); } catch (e) {}
+    if (b.max !== undefined) inv.max = Math.min(100, Math.max(1, parseInt(b.max, 10) || inv.max || 1));
+    if (b.days !== undefined) { const d = Math.min(MAX_DAYS, Math.max(1, parseInt(b.days, 10) || 30)); inv.exp = Date.now() + d * 86400e3; }
+    if (b.label !== undefined) inv.label = String(b.label || "").replace(/[\u0000-\u001f<>]/g, "").slice(0, 60);
+    if (b.resetUsed) inv.used = 0;
+    const ttl = Math.max(60, Math.floor((inv.exp - Date.now()) / 1e3));
+    await env.INVITES.put("inv:" + m[1], JSON.stringify(inv), { metadata: inv, expirationTtl: ttl + 86400 });
+    cache.delete(m[1]);
+    return json({ ok: true, id: m[1], ...inv });
+  }
   if (m && req.method === "DELETE") { await env.INVITES.delete("inv:" + m[1]); cache.delete(m[1]); return json({ ok: true }); }
   return json({ ok: false, error: "not_found" }, 404);
 }

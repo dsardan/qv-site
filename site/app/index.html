@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.143</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.144</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.143";
+const QE_VERSION = "15.12.144";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -14959,7 +14959,7 @@ function InvitePanel(props){
     keyh:{ru:"Задаётся один раз в Cloudflare: Workers → qv-site → Settings → Variables and Secrets. Хранится только на этом устройстве.",he:"מוגדר פעם אחת ב-Cloudflare: Workers → qv-site → Settings → Variables and Secrets. נשמר רק במכשיר הזה.",en:"Set once in Cloudflare: Workers → qv-site → Settings → Variables and Secrets. Stored on this device only."},
     label:{ru:"Для кого (пометка только для вас)",he:"עבור מי (תווית רק בשבילך)",en:"For whom (label, only for you)"},
     days:{ru:"Срок",he:"תוקף",en:"Valid"}, max:{ru:"Входов",he:"כניסות",en:"Uses"}, d:{ru:"дн.",he:"ימים",en:"days"},
-    create:{ru:"Создать приглашение",he:"צור הזמנה",en:"Create invite"}, copy:{ru:"Копировать",he:"העתק",en:"Copy"}, share:{ru:"Отправить",he:"שתף",en:"Share"},
+    create:{ru:"Создать приглашение",he:"צור הזמנה",en:"Create invite"}, edit:{ru:"Изменить",he:"ערוך",en:"Edit"}, save:{ru:"Сохранить",he:"שמור",en:"Save"}, cancel:{ru:"Отмена",he:"ביטול",en:"Cancel"}, reset:{ru:"Сбросить счётчик использованных входов",he:"אפס את מונה הכניסות שנוצלו",en:"Reset the used-entries counter"}, extend:{ru:"Продлить срок (с сегодня)",he:"הארך תוקף (מהיום)",en:"Extend validity (from today)"}, keep:{ru:"не менять",he:"ללא שינוי",en:"keep"}, saved:{ru:"Сохранено",he:"נשמר",en:"Saved"}, upd:{ru:"Нужно обновить сервер (qv-site v2.3): он ещё не умеет менять приглашения",he:"יש לעדכן את השרת (qv-site v2.3): הוא עדיין לא יודע לערוך הזמנות",en:"The server needs the update (qv-site v2.3): it cannot edit invitations yet"}, copy:{ru:"Копировать",he:"העתק",en:"Copy"}, share:{ru:"Отправить",he:"שתף",en:"Share"},
     copied:{ru:"Скопировано",he:"הועתק",en:"Copied"}, list:{ru:"Выданные приглашения",he:"הזמנות שנוצרו",en:"Issued invitations"},
     none:{ru:"Пока нет приглашений",he:"אין הזמנות עדיין",en:"No invitations yet"}, revoke:{ru:"Отозвать",he:"בטל",en:"Revoke"},
     used:{ru:"использовано",he:"נוצל",en:"used"}, until:{ru:"до",he:"עד",en:"until"}, refresh:{ru:"Обновить",he:"רענן",en:"Refresh"},
@@ -14970,7 +14970,7 @@ function InvitePanel(props){
   const tr=(k)=>(X[k]&&(X[k][LG]||X[k].ru))||k;
   const ls=(k,v)=>{ try{ if(v===undefined) return localStorage.getItem(k)||""; if(v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(er){} return ""; };
   const [key,setKey]=useState(()=>ls("qe_inv_key"));
-  const [label,setLabel]=useState(""); const [days,setDays]=useState(30); const [max,setMax]=useState(3);
+  const [label,setLabel]=useState(""); const [days,setDays]=useState(30); const [max,setMax]=useState(3); const [ed,setEd]=useState(null);
   const [items,setItems]=useState(null); const [msg,setMsg]=useState(""); const [busy,setBusy]=useState(false);
   const [link,setLink]=useState("");
   const base=()=>String((props.base&&props.base())||"").replace(/\/+$/,"");
@@ -14978,13 +14978,15 @@ function InvitePanel(props){
     const k=(key||"").trim(); if(!k){ setMsg(tr("need")); return Promise.reject(new Error("nokey")); }
     ls("qe_inv_key",k);
     return fetch(base()+path,{method,cache:"no-store",headers:{"Authorization":"Bearer "+k,"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined})
-      .then(r=>r.json().catch(()=>({})).then(j=>{ if(r.status===401) throw new Error("e401"); if(r.status===503) throw new Error("e503"); if(!r.ok||j.ok===false) throw new Error("enet"); return j; }),()=>{ throw new Error("enet"); });
+      .then(r=>r.json().catch(()=>({})).then(j=>{ if(r.status===401) throw new Error("e401"); if(r.status===503) throw new Error("e503"); if(method==="PATCH"&&(r.status===404||r.status===405)&&!(j&&j.error==="not_found")) throw new Error("upd"); if(!r.ok||j.ok===false) throw new Error("enet"); return j; }),()=>{ throw new Error("enet"); });
   };
   const fail=(er)=>{ const m=String(er&&er.message||""); if(m!=="nokey") setMsg(X[m]?tr(m):tr("enet")); setBusy(false); };
   const load=()=>{ setBusy(true); setMsg(""); call("GET","/api/invites").then(j=>{ setItems(j.items||[]); setBusy(false); }).catch(fail); };
   useEffect(()=>{ if((key||"").trim()) load(); },[]);
   const create=()=>{ setBusy(true); setMsg(""); setLink("");
-    call("POST","/api/invite",{label:label.trim(),days:days,max:max}).then(j=>{ setLink(j.url||""); setLabel(""); return call("GET","/api/invites"); }).then(j=>{ setItems(j.items||[]); setBusy(false); }).catch(fail); };
+    call("POST","/api/invite",{label:label.trim(),days:days,max:Math.min(100,Math.max(1,parseInt(max,10)||1))}).then(j=>{ setLink(j.url||""); setLabel(""); return call("GET","/api/invites"); }).then(j=>{ setItems(j.items||[]); setBusy(false); }).catch(fail); };
+  const saveEd=()=>{ if(!ed) return; setBusy(true); setMsg(""); const b={max:Math.min(100,Math.max(1,parseInt(ed.max,10)||1))}; if(ed.reset) b.resetUsed=true; if(ed.days>0) b.days=ed.days;
+    call("PATCH","/api/invite/"+ed.id,b).then(()=>{ setEd(null); setMsg(tr("saved")); return call("GET","/api/invites"); }).then(j=>{ setItems(j.items||[]); setBusy(false); }).catch(fail); };
   const revoke=(id)=>{ setBusy(true); call("DELETE","/api/invite/"+id).then(()=>call("GET","/api/invites")).then(j=>{ setItems(j.items||[]); setBusy(false); }).catch(fail); };
   const copy=(u)=>{ const done=()=>setMsg(tr("copied"));
     try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(u).then(done,()=>{}); return; } }catch(er){}
@@ -15002,8 +15004,8 @@ function InvitePanel(props){
     e("div",{style:lab},tr("label")),
     e("input",{value:label,maxLength:60,onChange:ev=>setLabel(ev.target.value),style:inp,"data-testid":"inv-label"}),
     e("div",{style:{display:"flex",gap:"12px",flexWrap:"wrap",alignItems:"flex-end"}},
-      e("div",null,e("div",{style:lab},tr("days")),sel(days,setDays,[7,30,90],tr("d"))),
-      e("div",null,e("div",{style:lab},tr("max")),sel(max,setMax,[1,3,5,10]))),
+      e("div",null,e("div",{style:lab},tr("days")),sel(days,setDays,[7,30,90,180,365],tr("d"))),
+      e("div",null,e("div",{style:lab},tr("max")),e("input",{type:"number",inputMode:"numeric",min:1,max:100,value:max,"data-testid":"inv-max",onChange:ev=>{ const v=ev.target.value; setMax(v===""?"":Math.min(100,Math.max(1,parseInt(v,10)||1))); },onBlur:()=>{ if(max===""||!(max>=1)) setMax(1); },style:{...inp,width:"84px"}}))),
     e("div",{style:{margin:"12px 0 6px",display:"flex",gap:"8px",flexWrap:"wrap"}},
       e("button",{onClick:create,disabled:busy,style:btn(T.green),"data-testid":"inv-create"},"✉ "+tr("create")),
       e("button",{onClick:load,disabled:busy,style:btn(T.cyan)},"↻ "+tr("refresh"))),
@@ -15015,13 +15017,20 @@ function InvitePanel(props){
         e("button",{onClick:()=>share(link),style:btn(T.gold)},"↗ "+tr("share")))),
     e("div",{style:{...lab,marginTop:"16px",fontWeight:"800"}},tr("list")),
     items&&items.length===0&&e("div",{style:{fontSize:"10.5px",color:T.gray2,fontFamily:"monospace"}},tr("none")),
-    (items||[]).map(it=>e("div",{key:it.id,"data-testid":"inv-row",style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"8px",border:`1px solid ${T.border}`,borderRadius:"9px",padding:"8px 10px",margin:"6px 0",background:T.bg2}},
+    (items||[]).map(it=>e("div",{key:it.id,"data-testid":"inv-row",style:{display:"flex",flexWrap:"wrap",justifyContent:"space-between",alignItems:"center",gap:"8px",border:`1px solid ${T.border}`,borderRadius:"9px",padding:"8px 10px",margin:"6px 0",background:T.bg2}},
       e("div",{style:{minWidth:0,fontFamily:"monospace",fontSize:"11px",color:T.white}},
         e("div",{style:{fontWeight:"700",overflow:"hidden",textOverflow:"ellipsis"}},it.label||"—"),
         e("div",{style:{fontSize:"9.5px",color:T.gray2}},tr("used")+" "+(it.used||0)+"/"+(it.max||0)+" · "+tr("until")+" "+fmt(it.exp))),
       e("div",{style:{display:"flex",gap:"6px"}},
         e("button",{onClick:()=>{ const u=base().replace(/^(https?:\/\/)relay\./,"$1")+"/join/"+it.id; copy(u); },style:btn(T.cyan),title:tr("copy")},"⧉"),
-        e("button",{onClick:()=>revoke(it.id),disabled:busy,style:btn(T.red)},tr("revoke"))))));
+        e("button",{onClick:()=>setEd(ed&&ed.id===it.id?null:{id:it.id,max:it.max||1,days:0,reset:false}),"data-testid":"inv-edit",style:btn(T.gold)},"✎"),
+        e("button",{onClick:()=>revoke(it.id),disabled:busy,style:btn(T.red)},tr("revoke"))),
+      ed&&ed.id===it.id&&e("div",{"data-testid":"inv-editor",style:{flexBasis:"100%",borderTop:`1px solid ${T.border}`,paddingTop:"8px",marginTop:"2px"}},
+        e("div",{style:{display:"flex",gap:"12px",flexWrap:"wrap",alignItems:"flex-end"}},
+          e("div",null,e("div",{style:lab},tr("max")+" (1–100)"),e("input",{type:"number",inputMode:"numeric",min:1,max:100,value:ed.max,"data-testid":"inv-edmax",onChange:ev=>{ const v=ev.target.value; setEd({...ed,max:v===""?"":Math.min(100,Math.max(1,parseInt(v,10)||1))}); },style:{...inp,width:"84px"}})),
+          e("div",null,e("div",{style:lab},tr("extend")),e("select",{value:ed.days,onChange:ev=>setEd({...ed,days:+ev.target.value}),style:{...inp,width:"auto",minWidth:"84px"}},[0,7,30,90,180,365].map(o=>e("option",{key:o,value:o},o?(o+" "+tr("d")):tr("keep")))))),
+        e("label",{style:{display:"flex",alignItems:"center",gap:"6px",fontSize:"10.5px",color:T.gray1,fontFamily:"monospace",margin:"8px 0",cursor:"pointer"}},e("input",{type:"checkbox",checked:!!ed.reset,onChange:ev=>setEd({...ed,reset:ev.target.checked})}),tr("reset")),
+        e("div",{style:{display:"flex",gap:"8px"}},e("button",{onClick:saveEd,disabled:busy,"data-testid":"inv-edsave",style:btn(T.green)},tr("save")),e("button",{onClick:()=>setEd(null),style:btn(T.gray1)},tr("cancel")))))));
 }
 // ── Live scalping monitor (vc586): always visible on the virtual-exchange screen. Shows what the turbo engine is doing right now, per market.
 /* vc588: QEAlp — FREE Alpaca IEX trade stream (wss://stream.data.alpaca.markets/v2/iex) for US stocks. Own keys (qe_alp_k / qe_alp_s, device only), independent of the global data provider.
