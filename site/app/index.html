@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.145</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.146</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.145";
+const QE_VERSION = "15.12.146";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -15181,9 +15181,13 @@ function VxScalpMon(props){
     mOff:{ru:"выключено вами",he:"כבוי על ידך",en:"switched off by you"}, closed:{ru:"сессия США закрыта — ждёт открытия",he:"המסחר בארה״ב סגור — ממתין לפתיחה",en:"US session closed — waiting for the open"},
     scan:{ru:"сканирую {w} · сделок {n}/{m}",he:"סורק {w} · עסקאות {n}/{m}",en:"scanning {w} · trades {n}/{m}"}, noq:{ru:"нет цен от источника — повторяю",he:"אין מחירים מהמקור — מנסה שוב",en:"no prices from the source — retrying"}, wait:{ru:"запускаю…",he:"מתחיל…",en:"starting…"},
     cycle:{ru:"цикл",he:"מחזור",en:"cycle"}, ago:{ru:"с назад",he:"לפני",en:"ago"}, trades:{ru:"сделок",he:"עסקאות",en:"trades"}, net:{ru:"итог",he:"סה״כ",en:"net"},
+    rep:{ru:"📋 Отчёт по каждому сканеру",he:"📋 דוח לכל סורק",en:"📋 Report per scanner"}, repCopy:{ru:"Копировать отчёты",he:"העתק דוחות",en:"Copy reports"}, copied:{ru:"Скопировано",he:"הועתק",en:"Copied"},
+    sScans:{ru:"циклов скана",he:"סבבי סריקה",en:"scan cycles"}, sQ:{ru:"цены получены / нет",he:"מחירים התקבלו / לא",en:"prices ok / failed"}, sSig:{ru:"сигналов найдено",he:"סיגנלים שנמצאו",en:"signals found"}, sCool:{ru:"отложено паузой",he:"נדחו בהשהיה",en:"held by cooldown"}, sFull:{ru:"упёрлось в лимит позиций",he:"הגיע למגבלת פוזיציות",en:"hit the position limit"}, sOpen:{ru:"сделок открыто / отказов",he:"עסקאות נפתחו / נדחו",en:"trades opened / refused"}, sLast:{ru:"последняя сделка",he:"עסקה אחרונה",en:"last trade"}, sLastQ:{ru:"последняя цена",he:"מחיר אחרון",en:"last price"}, never:{ru:"ещё не было",he:"עוד לא היה",en:"none yet"}, sErr:{ru:"последняя ошибка",he:"שגיאה אחרונה",en:"last error"},
+    rNoq:{ru:"нет цены",he:"אין מחיר",en:"no price"}, rWarm:{ru:"накапливает историю",he:"צובר היסטוריה",en:"warming up"}, rFlat:{ru:"нет направления",he:"אין כיוון",en:"no direction"}, rCool:{ru:"пауза",he:"השהיה",en:"cooldown"}, rSig:{ru:"сигнал",he:"סיגנל",en:"signal"}, rOpen:{ru:"ОТКРЫТА СДЕЛКА",he:"נפתחה עסקה",en:"TRADE OPENED"}, rOfail:{ru:"сигнал есть, сделка отклонена (бюджет/лимит/кэш)",he:"יש סיגנל, העסקה נדחתה (תקציב/מגבלה/מזומן)",en:"signal, trade refused (budget/limit/cash)"},
+    vOff:{ru:"Сканер выключен вами",he:"הסורק כבוי על ידך",en:"Scanner switched off by you"}, vClosed:{ru:"Сессия США закрыта — сканер ждёт открытия, это нормально",he:"המסחר בארה״ב סגור — הסורק ממתין, זה תקין",en:"US session closed — scanner waits, this is normal"}, vNone:{ru:"Сканер ещё не делал ни одного цикла (подождите несколько секунд)",he:"הסורק עוד לא ביצע סבב (המתן כמה שניות)",en:"Scanner has not completed a cycle yet (wait a few seconds)"}, vNoq:{ru:"ПРОБЛЕМА: источник не отдаёт цены. Нажмите «Проверить источники данных»",he:"בעיה: המקור לא מחזיר מחירים. לחץ «בדוק מקורות נתונים»",en:"PROBLEM: the source returns no prices. Press “Check data sources”"}, vWarm:{ru:"Работает: копит историю цен (нужно ~{s} с на тикер) — сделок пока нет",he:"פועל: צובר היסטוריית מחירים (~{s} שנ׳ לכל טיקר) — אין עסקאות עדיין",en:"Working: building price history (~{s} s per ticker) — no trades yet"}, vQuiet:{ru:"Работает: цены идут, но сильного движения нет — сигналов нет. Рынок спокойный",he:"פועל: מחירים מגיעים אך אין תנועה חזקה — אין סיגנלים. השוק רגוע",en:"Working: prices arrive but there is no strong move — no signals. Market is quiet"}, vBlk:{ru:"Работает: сигналы есть, но сделки не открылись (пауза/лимит/бюджет/кэш)",he:"פועל: יש סיגנלים אך עסקאות לא נפתחו (השהיה/מגבלה/תקציב/מזומן)",en:"Working: signals exist but trades were not opened (cooldown/limit/budget/cash)"}, vOk:{ru:"Работает: сделки открываются",he:"פועל: עסקאות נפתחות",en:"Working: trades are being opened"},
     master:{ru:"Остановить скальпинг",he:"עצור סקאלפינג",en:"Stop scalping"}, masterOn:{ru:"Запустить скальпинг",he:"הפעל סקאלפינג",en:"Start scalping"},
     wake:{ru:"Не гасить экран, пока скальпинг работает",he:"אל תכבה את המסך בזמן סקאלפינג",en:"Keep the screen on while scalping"},
-    note:{ru:"Скальпинг не останавливается сам: работает, пока вы не нажмёте «Остановить». Условие: приложение открыто на экране (Android усыпляет фон). Выходы — только цель, стоп или разворот по протоколу.",he:"הסקאלפינג לא נעצר מעצמו: פועל עד שתלחץ «עצור». תנאי: האפליקציה פתוחה על המסך (אנדרואיד מרדים רקע). יציאות — רק יעד, סטופ או היפוך לפי הפרוטוקול.",en:"Scalping never stops by itself: it runs until you press “Stop”. Requirement: the app stays open on screen (Android freezes the background). Exits only at target, stop or reversal per the protocol."}
+    note:{ru:"Скальпинг не останавливается сам: работает, пока вы не нажмёте «Остановить». Условие: приложение открыто на экране (Android усыпляет фон). Выходы — только цель, стоп или трейлинг при прибыли.",he:"הסקאלפינג לא נעצר מעצמו: פועל עד שתלחץ «עצור». תנאי: האפליקציה פתוחה על המסך (אנדרואיד מרדים רקע). יציאות — רק יעד, סטופ או סטופ נגרר ברווח.",en:"Scalping never stops by itself: it runs until you press “Stop”. Requirement: the app stays open on screen (Android freezes the background). Exits only at target, stop or a profit trailing stop."}
   };
   const tr=(k)=>(X[k]&&(X[k][LG]||X[k].ru))||k;
   const hb=props.hb?props.hb():0; const age=hb?Math.round((Date.now()-hb)/1000):null; const stalled=on&&age!=null&&age>20;
@@ -15198,11 +15202,35 @@ function VxScalpMon(props){
       e("div",{style:{fontSize:"13px",color:T.white,fontFamily:"monospace",fontWeight:"800"}},lab),
       e("div",{"data-testid":"tbst-"+k,style:{fontSize:"11.5px",color:col(k),fontFamily:"monospace",lineHeight:1.35}},on?stTxt(k):tr("off"))));
   const thr=(tb.thr||[]).slice(0,8);
+  const [repOpen,setRepOpen]=useState(false); const [cp,setCp]=useState(false);
+  const rps=tb.rep||{}; const nowS=Date.now();
+  const agoS=(ts)=>{ if(!ts) return tr("never"); const d=Math.round((nowS-ts)/1000); return d<90?d+" s":(d<5400?Math.round(d/60)+" min":Math.round(d/3600)+" h"); };
+  const verdict=(k)=>{ const flag=k==="CR"?mk.cr:mk.st; const m=mst[k]; const r=rps[k]; if(!flag||(m&&m.st==="off")) return [T.gray2,tr("vOff")]; if(m&&m.st==="closed") return [T.amber||T.gold,tr("vClosed")]; if(!r||!r.scans) return [T.gray1,tr("vNone")];
+    if(r.qOk===0||(m&&m.st==="noq")) return [T.red,tr("vNoq")]; if(r.openOk>0) return [T.green,tr("vOk")]; if(r.sig>0) return [T.gold,tr("vBlk")];
+    const wr=(r.rows||[]).find(x=>x.s==="warm"); if(wr&&r.scans<6) return [T.cyan,tr("vWarm").replace("{s}",String(wr.needS))]; return [T.green,tr("vQuiet")]; };
+  const rowTxt=(x)=>{ const nm=x.tk.replace("-USD",""); const px=x.px?(" @"+(x.px>=100?x.px.toFixed(2):x.px.toPrecision(4))):""; const dr=x.dir>0?" ▲":(x.dir<0?" ▼":"");
+    if(x.s==="noq") return nm+": "+tr("rNoq"); if(x.s==="warm") return nm+px+": "+tr("rWarm")+" "+x.n+"/"+x.need+", "+x.age+"/"+x.needS+" s"; if(x.s==="flat") return nm+px+": "+tr("rFlat");
+    if(x.s==="cool") return nm+px+dr+": "+tr("rCool")+" "+x.left+" s"; if(x.s==="sig") return nm+px+dr+": "+tr("rSig")+" ("+x.sc+")"; if(x.s==="open") return nm+px+dr+": "+tr("rOpen"); return nm+px+dr+": "+tr("rOfail"); };
+  const repText=()=>["CR","ST"].map(k=>{ const r=rps[k]||{}; const v=verdict(k); const L=[(k==="CR"?tr("cr"):tr("st")),v[1]]; if(r.scans){ L.push(tr("sScans")+": "+r.scans+" · "+tr("sQ")+": "+r.qOk+"/"+r.qFail+" · "+tr("sSig")+": "+r.sig+" · "+tr("sCool")+": "+r.coolBlk+" · "+tr("sFull")+": "+r.full+" · "+tr("sOpen")+": "+r.openOk+"/"+r.openFail+" · "+tr("sLast")+": "+agoS(r.lastOpen)+" · "+tr("sLastQ")+": "+agoS(r.lastOk)); (r.rows||[]).forEach(x=>L.push("  "+rowTxt(x))); if(r.err) L.push(tr("sErr")+": "+r.err); } return L.join("\n"); }).join("\n\n");
+  const copyRep=()=>{ const tx="QuantView "+(typeof QE_VERSION!=="undefined"?QE_VERSION:"")+" · "+new Date().toLocaleString()+"\n\n"+repText(); try{ navigator.clipboard.writeText(tx).then(()=>{ setCp(true); setTimeout(()=>setCp(false),2000); }); }catch(er){ try{ const ta=document.createElement("textarea"); ta.value=tx; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); setCp(true); setTimeout(()=>setCp(false),2000); }catch(e2){} } };
+  const repCard=(k)=>{ const r=rps[k]||{}; const v=verdict(k); const ln=(a,b)=>e("div",{key:a,style:{display:"flex",justifyContent:"space-between",gap:"8px",fontSize:"11.5px",fontFamily:"monospace",color:T.gray1,lineHeight:1.5}},e("span",null,a),e("span",{style:{color:T.white,fontWeight:"700",textAlign:"end"}},b));
+    return e("div",{key:k,"data-testid":"tbrep-"+k,style:{border:`1px solid ${v[0]}66`,borderRadius:"10px",padding:"8px 10px",marginTop:"8px"}},
+      e("div",{style:{fontSize:"13px",color:T.white,fontFamily:"monospace",fontWeight:"800"}},k==="CR"?tr("cr"):tr("st")),
+      e("div",{"data-testid":"tbverdict-"+k,style:{fontSize:"11.5px",color:v[0],fontFamily:"monospace",fontWeight:"700",lineHeight:1.4,margin:"3px 0 6px"}},v[1]),
+      r.scans&&[ln(tr("sScans"),r.scans),ln(tr("sQ"),r.qOk+" / "+r.qFail),ln(tr("sSig"),r.sig),ln(tr("sCool"),r.coolBlk),ln(tr("sFull"),r.full),ln(tr("sOpen"),r.openOk+" / "+r.openFail),ln(tr("sLast"),agoS(r.lastOpen)),ln(tr("sLastQ"),agoS(r.lastOk)),
+        (r.rows||[]).length>0&&e("div",{key:"rows",style:{marginTop:"6px",paddingTop:"6px",borderTop:`1px dashed ${T.border}`}},(r.rows||[]).map((x,i)=>e("div",{key:i,style:{fontSize:"11px",fontFamily:"monospace",color:x.s==="open"?T.green:(x.s==="noq"||x.s==="ofail"?T.red:T.gray1),lineHeight:1.45}},rowTxt(x)))),
+        r.err&&e("div",{key:"err",style:{fontSize:"11px",fontFamily:"monospace",color:T.red,marginTop:"4px"}},tr("sErr")+": "+r.err)]);
+  };
   return e("div",{"data-testid":"tbmon",style:{background:T.bg1,border:`1px solid ${stalled?T.red:(on?T.cyan:T.border)}66`,borderRadius:"12px",padding:"10px 12px",marginBottom:"12px"}},
     e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px",marginBottom:"6px"}},
       e("div",{style:{fontSize:"14px",color:T.cyan,fontFamily:"monospace",fontWeight:"900"}},tr("title")),
       e("div",{"data-testid":"tbbadge",style:{fontSize:"11.5px",fontFamily:"monospace",fontWeight:"900",color:stalled?T.red:(on?T.green:T.gray2)}},stalled?tr("stall"):(on?tr("run"):tr("off")))),
     sw("CR",!!mk.cr,tr("cr")), sw("ST",!!mk.st,tr("st")),
+    e("div",{style:{borderTop:`1px solid ${T.border}`,padding:"6px 0"}},
+      e("div",{style:{display:"flex",gap:"8px",flexWrap:"wrap"}},
+        e("button",{onClick:()=>setRepOpen(!repOpen),"data-testid":"tbrep-btn","aria-expanded":repOpen?"true":"false",style:{background:T.bg2,border:`1px solid ${T.cyan}`,color:T.cyan,borderRadius:"9px",padding:"7px 11px",fontSize:"12px",fontFamily:"monospace",fontWeight:"800",cursor:"pointer"}},tr("rep")+(repOpen?" ▾":" ▸")),
+        repOpen&&e("button",{onClick:copyRep,"data-testid":"tbrep-copy",style:{background:T.bg2,border:`1px solid ${T.border}`,color:T.white,borderRadius:"9px",padding:"7px 11px",fontSize:"12px",fontFamily:"monospace",fontWeight:"700",cursor:"pointer"}},cp?("✓ "+tr("copied")):tr("repCopy"))),
+      repOpen&&e("div",null,repCard("CR"),repCard("ST"))),
     thr.length>0&&e("div",{style:{display:"flex",flexWrap:"wrap",gap:"6px",padding:"6px 0",borderTop:`1px solid ${T.border}`}},
       thr.map(h=>e("span",{key:h.tk,style:{fontSize:"11.5px",fontFamily:"monospace",color:(h.fav||0)>=0?T.green:T.red,background:T.bg2,borderRadius:"8px",padding:"2px 8px"}},h.tk.replace("-USD","")+" "+(h.side==="long"?"▲":"▼")+" "+((h.fav||0)>=0?"+":"")+(h.fav!=null?(+h.fav).toFixed(2):"0")+"%"))),
     e("div",{style:{fontSize:"11.5px",color:T.gray1,fontFamily:"monospace",padding:"6px 0",borderTop:`1px solid ${T.border}`,lineHeight:1.5}},
@@ -19288,7 +19316,7 @@ function App(){
   const [tbOnUi,setTbOnUi]=useState(()=>{ try{ return localStorage.getItem("qe_turbo")!=="0"; }catch(e){ return true; } });
   const [tbUi,setTbUi]=useState(null);
   const tbRef=useRef({buf:{},cool:{},watch:[],wTs:0,rr:0,thr:{},n:0,flips:0,net:0,ts:0,scanBusy:false,pubTs:0});
-  const _tbPub=(force)=>{ const R=tbRef.current, now=Date.now(); if(!force&&now-R.pubTs<1000) return; R.pubTs=now; try{ const thr=Object.keys(R.thr).filter(k=>R.thr[k].alive).map(k=>{ const h=R.thr[k]; return {tk:k,id:h.id,side:h.side,ms:h.lastMs,tick:h.ticks,fav:h.fav,errs:h.errs}; }); setTbUi({thr:thr,n:R.n,flips:R.flips,net:+R.net.toFixed(2),ts:now,mst:R.mst||{},why:R.why||""}); }catch(e){} };
+  const _tbPub=(force)=>{ const R=tbRef.current, now=Date.now(); if(!force&&now-R.pubTs<1000) return; R.pubTs=now; try{ const thr=Object.keys(R.thr).filter(k=>R.thr[k].alive).map(k=>{ const h=R.thr[k]; return {tk:k,id:h.id,side:h.side,ms:h.lastMs,tick:h.ticks,fav:h.fav,errs:h.errs}; }); setTbUi({thr:thr,n:R.n,flips:R.flips,net:+R.net.toFixed(2),ts:now,mst:R.mst||{},why:R.why||"",rep:R.rep||{}}); }catch(e){} };
   const _tbMicro=(b,now,cr)=>{ if(!b||b.length<TB().warmPts||now-b[0].t<TB().warmMs) return null; const p=b[b.length-1].p;
     const ema=(tau)=>{ let e=b[0].p,t0=b[0].t; for(let i=1;i<b.length;i++){ const dt=Math.max(0.5,(b[i].t-t0)/1000); const a=1-Math.exp(-dt/tau); e+=a*(b[i].p-e); t0=b[i].t; } return e; };
     const ef=ema(6), es=ema(24); const dev=(ef-es)/es*100; const old=b.find(x=>x.t>=now-30000)||b[0]; const mv=(p-old.p)/old.p*100;
@@ -19346,8 +19374,15 @@ function App(){
     const w=_tbWatch(M).filter(tk=>!held[tk]); const S=R.wm[M]; S.pr=S.pr||0; const PN=CRm?4:3; const pick=[]; for(let i=0;i<Math.min(PN,w.length);i++) pick.push(w[(S.pr+i)%w.length]); S.pr=(S.pr+PN)%Math.max(1,w.length);
     const qs=await Promise.all(pick.map(tk=>_tbQuote(tk).then(q=>[tk,q]).catch(()=>[tk,null]))); let best=null;
     const okN=qs.filter(x=>x[1]&&x[1].price>0).length; if(!okN) _tbIdle("no_quotes",{mkt:M,watch:w.length,pick:pick.join(",")});
-    qs.forEach(([tk,q])=>{ if(!(q&&q.price>0)) return; const b=_tbPush(tk,q.price); const m=_tbMicro(b,Date.now(),_isCryptoTk(tk)); if(m&&m.dir!==0&&!(R.cool[tk]>Date.now())&&!held[tk]){ if(!best||m.score>best.m.score) best={tk:tk,m:m,px:q.price}; } });
-    if(best&&nS<C.maxT){ const a2=_tbAcct(); if(a2&&!a2.positions.some(p=>p.ticker===best.tk&&p.qty!==0)){ if(_tbOpen(best.tk,best.m.dir,best.px,best.m)){ const h=_tbSpawn(best.tk); h.side=best.m.dir>0?"long":"short"; nS++; if(CRm) R.crLast=Date.now(); } } }
+    const rp=(R.rep=R.rep||{})[M]||(R.rep[M]={scans:0,qOk:0,qFail:0,sig:0,coolBlk:0,full:0,openOk:0,openFail:0,lastOpen:0,lastOk:0,err:"",errTs:0,rows:[],ts:0,w:0,watch:[]}); rp.scans++; rp.w=w.length; rp.watch=w.slice(0,15); rp.ts=Date.now(); const rows=[]; const T0=TB();
+    qs.forEach(([tk,q])=>{ if(!(q&&q.price>0)){ rp.qFail++; rows.push({tk:tk,s:"noq"}); return; } rp.qOk++; rp.lastOk=Date.now(); const b=_tbPush(tk,q.price); const m=_tbMicro(b,Date.now(),_isCryptoTk(tk));
+      if(!m){ rows.push({tk:tk,s:"warm",px:q.price,n:b.length,need:T0.warmPts,age:Math.round((Date.now()-b[0].t)/1000),needS:Math.round(T0.warmMs/1000)}); return; }
+      if(m.dir===0){ rows.push({tk:tk,s:"flat",px:q.price}); return; }
+      rp.sig++; if(R.cool[tk]>Date.now()){ rp.coolBlk++; rows.push({tk:tk,s:"cool",px:q.price,dir:m.dir,left:Math.round((R.cool[tk]-Date.now())/1000)}); return; }
+      rows.push({tk:tk,s:"sig",px:q.price,dir:m.dir,sc:+(m.score||0).toFixed(2)}); if(!best||m.score>best.m.score) best={tk:tk,m:m,px:q.price}; });
+    rp.rows=rows;
+    if(best&&nS>=C.maxT) rp.full++;
+    if(best&&nS<C.maxT){ const a2=_tbAcct(); if(a2&&!a2.positions.some(p=>p.ticker===best.tk&&p.qty!==0)){ if(_tbOpen(best.tk,best.m.dir,best.px,best.m)){ const h=_tbSpawn(best.tk); h.side=best.m.dir>0?"long":"short"; nS++; rp.openOk++; rp.lastOpen=Date.now(); rows.forEach(r=>{ if(r.tk===best.tk) r.s="open"; }); if(CRm) R.crLast=Date.now(); } else { rp.openFail++; rows.forEach(r=>{ if(r.tk===best.tk) r.s="ofail"; }); } } }
     mst[M]={st:okN?"run":"noq",w:w.length,nS:nS,max:C.maxT,ok:okN,ts:Date.now()}; };
   const _tbScan=async()=>{ const R=tbRef.current; R.hb=Date.now(); if(R.scanBusy&&R.hb-(R.busyTs||0)>30000){ R.scanBusy=false; try{ window.QEVXLog.log("WARN","tb.unstick",{}); }catch(e){} } if(R.scanBusy) return; const force=!!window.__tbForce;
     try{ if(_tbOn()){ const a0=_tbAcct(), m0=_loadAi(); if(a0) a0.positions.forEach(p=>{ const th=m0.open&&m0.open[p.ticker]; if(th&&th.scalp&&p.qty!==0&&(_isCryptoTk(p.ticker)||window.QEHours.isOpen(/[.]/.test(p.ticker)?(vxExchRef.current||"US"):"US"))) _tbSpawn(p.ticker); }); } }catch(e){}   /* every open scalp keeps its own thread whatever exchange is selected */
@@ -19357,7 +19392,7 @@ function App(){
     const mst={}; const mk=[]; if(_tbMktOn("CR")) mk.push("CR"); else mst.CR={st:"off"}; if(_tbMktOn("ST")){ if(force||window.QEHours.isOpen("US")) mk.push("ST"); else mst.ST={st:"closed"}; } else mst.ST={st:"off"};
     if(!mk.length){ R.mst=mst; _tbIdle(mst.ST&&mst.ST.st==="closed"?"us_closed":"no_market"); R.ts=Date.now(); pubSig(mst); return; }
     R.scanBusy=true; R.busyTs=Date.now();
-    try{ const C=TB(); for(let i=0;i<mk.length;i++){ try{ await _tbScanMkt(mk[i],C,mst); }catch(e){ try{ window.QEVXLog.err("tb.scan."+mk[i],e); }catch(_){} } } R.mst=mst; R.ts=Date.now(); _tbPub(false);
+    try{ const C=TB(); for(let i=0;i<mk.length;i++){ try{ await _tbScanMkt(mk[i],C,mst); }catch(e){ try{ const rr=(R.rep=R.rep||{})[mk[i]]; if(rr){ rr.err=String(e&&e.message||e).slice(0,160); rr.errTs=Date.now(); } window.QEVXLog.err("tb.scan."+mk[i],e); }catch(_){} } } R.mst=mst; R.ts=Date.now(); _tbPub(false);
     }catch(e){ try{ window.QEVXLog.err("tb.scan",e); }catch(_){} } finally{ R.scanBusy=false; } };
   useEffect(()=>{ if(!authUser) return; const wl={s:null};
     const wantWl=()=>{ try{ return !!(scalpOnRef.current&&_tbOn()&&localStorage.getItem("qe_tb_wake")!=="0"&&(_tbMktOn("CR")||_tbMktOn("ST"))); }catch(e){ return false; } };
