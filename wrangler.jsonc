@@ -1,0 +1,16 @@
+{
+  // One Worker: relay (relay.<domain>, ?url=, /ws/binance, /health) + static website (./site) on every other host.
+  "name": "qv-site",
+  "main": "index.js",
+  "compatibility_date": "2026-01-01",
+  // Custom domains are attached automatically on deploy (zone must be in this Cloudflare account).
+  "routes": [
+    { "pattern": "futuretrainingnow.com", "custom_domain": true },
+    { "pattern": "relay.futuretrainingnow.com", "custom_domain": true }
+  ],
+  "assets": {
+    "directory": "./site",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  }
+}
