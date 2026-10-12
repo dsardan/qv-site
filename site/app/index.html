@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.146</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.147</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.146";
+const QE_VERSION = "15.12.147";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -1732,7 +1732,12 @@ const QEBin=(function(){
 })();
 try{ window.QEBin=QEBin; setTimeout(()=>{ try{ QEBin.refresh(false); }catch(e){} },4000); setInterval(()=>{ try{ QEBin.refresh(false); }catch(e){} },3600e3); }catch(e){}
 
-async function fetchOHLC(symbol, opts){
+async function fetchOHLC(symbol, opts){   /* vc594: counts every price download for the per-scanner report (QESR) */
+  const _t0=Date.now();
+  try{ const r=await _fetchOHLCraw(symbol,opts); try{ window.QESR&&window.QESR.f(symbol,!!(r&&r.length>=40),Date.now()-_t0); }catch(_){} return r; }
+  catch(e){ try{ window.QESR&&window.QESR.f(symbol,false,Date.now()-_t0,e&&e.message); }catch(_){} throw e; }
+}
+async function _fetchOHLCraw(symbol, opts){
   opts=opts||{};
   if(QEBin.pair(symbol)){ try{ const r=await QEBin.ohlc(symbol); if(r&&r.length>=40){ _onFetchOk(); return r; } }catch(e){} }   /* vc579 */
   if(opts.force){
@@ -10534,6 +10539,25 @@ function listExchanges(){
 
 try{ const _k=[]; Object.keys(UNIVERSES).forEach(k=>{ (UNIVERSES[k]||[]).forEach(x=>_k.push(String(x).replace(/\..*$/,"").replace(/-USD$/,""))); }); Object.keys(US_SECTORS).forEach(k=>(US_SECTORS[k]||[]).forEach(x=>_k.push(x))); window.QEX&&window.QEX.keep(_k); }catch(e){}
 window.EWEngine = { fetchAnalystSources, REPUTABLE_FIRMS, brokerStance, fetchAnalystResearch, fetchBrokerActions, reputableLatest, refineQuality, runScan, analyzeWatchlist, fetchMacroCalendar, macroRiskIn, runSmartScan, analyzeMarketRegime, scoreCandidate, moveInVolUnits, backtestMoveNormalization, findSimilar, fetchQuote, analyzeFund, fetchFundHistory, recordSignal, getKnowledge, getGlobalStats, getMissInsights, getTickerFix, attachKbGuard, getCalibration, backtestCalibration, getFeatureEdge, getBigDataStats, wilsonCI, ewmaCalibration, isotonicCalibration, applyLiveCalibration, clearReservoir, clearKnowledge, exportKnowledge, importKnowledge, exportDatabase, importDatabase, autoBackup, hasAutoBackup, autoRecoverIfEmpty, projectNextMove, forecastValidity, refineProbability, buildForecast, totalForecast, cfdAnalysis, quantumForecast, forecastDistribution, detectCycle, crossCheck, resultantVector, fetchKlinesDeep, buildSeedBase, clearSeedBase, benchmarkCompare, backtestCalibrate, marketStatus, resolveCompanyName, cachedCompanyName, trackInstitutionalNewPositions, getCached13F, inst13FStale, trackLargeStakes, getCachedLargeStakes, largeStakesStale, INSTITUTIONS_13F, lognormalReachProb, firstPassageReachProb, entryFillProbability, normCDF:_normCDF, refineQuality, refinePicks, assessFlawless, screenStocks, fetchOHLC, fetchOHLCPeriod, fetchHistory, fetchYahoo, analyzeWave, analyzeTicker, getSignals, getCapitalFlow, fetchAnalystData, fetchCompanyInfo, fetchFinancials, fmtBigRU, fetchNews, fetchNewsMulti, computeSentiment, runAnalyses, analyzeIndicators, analyzeTrend, analyzeSupportResistance, analyzePatterns, detectCandlePatterns, analyzeVolumeProfile, analyzeVolumeConfirmation, analyzeDivergence, analyzeBreakout, analyzeAtrStops, analyzeMultiTimeframe, volSeries, testConnection, diagnoseSearch, getStrictConfig, getDataConfig, setDataConfig, listDataProviders, activeProvider, dataDelayMin, isRealtime, QERealtime, listExchanges, EXCHANGES, UNIVERSES, US_SECTORS, resolveSymbol, searchSymbols, localizeFactor, localizeReason, runBacktest, btComputeStats:_btComputeStats, quickResolveAndCalibrate, runCalibration };
+/* vc594: per-scanner run recorder. Wraps the four search scanners (smart / scan / criteria / quality) once, for every caller (UI, auto-scan, virtual exchange). */
+window.QESR=(function(){
+  var KEY="qe_scan_rep", H={}; try{ H=JSON.parse(localStorage.getItem(KEY)||"{}")||{}; }catch(e){ H={}; }
+  var stack=[]; function save(){ try{ localStorage.setItem(KEY,JSON.stringify(H)); }catch(e){} }
+  function f(sym,ok,ms,err){ var r=stack[stack.length-1]; if(!r) return; r.f.n++; if(ok) r.f.ok++; else{ r.f.fail++; if(r.f.bad.length<6) r.f.bad.push(String(sym)+(err?(": "+String(err).slice(0,70)):"")); } r.f.ms+=ms; }
+  function wrap(name,idOf,exOf,secOf){ var orig=window.EWEngine[name]; if(typeof orig!=="function"||orig.__qesr) return;
+    var w=async function(){ var a=arguments; var id=idOf(a); var rec={id:id,t0:Date.now(),bg:typeof a[0]!=="function",exch:exOf(a),sec:secOf(a),f:{n:0,ok:0,fail:0,ms:0,bad:[]}}; stack.push(rec); var res,thr=null;
+      try{ res=await orig.apply(this,a); }catch(e){ thr=e; }
+      stack=stack.filter(function(x){ return x!==rec; }); rec.dur=Date.now()-rec.t0;
+      if(thr){ rec.err=String(thr&&thr.message||thr).slice(0,200); }
+      else{ rec.n=(res&&res.length)||0; if(res){ rec.noData=!!res._noData; rec.crash=res._crash?String(res._crash).slice(0,160):""; rec.strictNone=!!res._strictNone; rec.relaxed=!!res._relaxed; rec.poolN=res._poolN!=null?res._poolN:null; rec.mkt=res._marketState||""; rec.asOf=res._asOf||0; } }
+      try{ var h=H[id]||(H[id]={runs:0,ok:0,empty:0,nodata:0,err:0}); h.runs++; if(thr||rec.crash) h.err++; else if(rec.noData) h.nodata++; else if(rec.n>0) h.ok++; else h.empty++; h.last=rec; save(); }catch(e){}
+      if(thr) throw thr; return res; };
+    w.__qesr=1; window.EWEngine[name]=w; }
+  wrap("runSmartScan",function(a){ return (a[4]&&a[4].qpred)?"qual":"smart"; },function(a){ return a[1]; },function(a){ return a[2]; });
+  wrap("runScan",function(){ return "scan"; },function(a){ return a[1]; },function(a){ return a[3]; });
+  wrap("screenStocks",function(){ return "crit"; },function(a){ return a[1]; },function(a){ return a[3]; });
+  return {f:f,get:function(){ return H; },clear:function(){ H={}; save(); }};
+})();
 
 </script>
 <script>
@@ -15113,6 +15137,57 @@ function VxAlpPanel(props){
       e("div",{style:{fontSize:"10.8px",color:T.gray2,fontFamily:"monospace",lineHeight:1.5}},tr("how"))));
 }
 /* vc590: one-tap data-source check (relay, Yahoo, Stooq, Binance REST/WS, engine quotes, Alpaca, scalper state) with a plain-language verdict. */
+function ScanReport(props){
+  const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const cx=props.ctx||{};
+  const [open,setOpen]=useState(false); const [busy,setBusy]=useState(""); const [cp,setCp]=useState(false); const [,setN]=useState(0);
+  useEffect(()=>{ if(!open) return; const id=setInterval(()=>setN(x=>x+1),1000); return ()=>clearInterval(id); },[open]);
+  const X={
+    btn:{ru:"📋 Отчёт по каждому сканеру",he:"📋 דוח לכל סורק",en:"📋 Report per scanner"},
+    smart:{ru:"🎯 Умный поиск по рынку",he:"🎯 חיפוש חכם",en:"🎯 Smart market scan"}, scan:{ru:"▶ Запустить скан",he:"▶ הפעל סריקה",en:"▶ Run scan"}, crit:{ru:"🔎 Поиск по критериям",he:"🔎 חיפוש לפי קריטריונים",en:"🔎 Screen by criteria"}, qual:{ru:"🏅 Сканер по оценке качества",he:"🏅 סורק לפי ציון איכות",en:"🏅 Quality-score scanner"},
+    never:{ru:"Ещё не запускался. Запустите его или нажмите «Прогнать все сканеры».",he:"עוד לא הופעל. הפעל אותו או לחץ «הרץ את כל הסורקים».",en:"Not run yet. Run it or press “Run all scanners”."},
+    vOk:{ru:"Работает: нашёл {n}",he:"פועל: נמצאו {n}",en:"Working: found {n}"}, vRel:{ru:" (с ослабленными фильтрами)",he:" (עם מסננים מוקלים)",en:" (with relaxed filters)"},
+    vNoData:{ru:"ПРОБЛЕМА: нет данных — источник цен не отдал котировки (загружено {ok} из {n})",he:"בעיה: אין נתונים — המקור לא החזיר מחירים (נטענו {ok} מתוך {n})",en:"PROBLEM: no data — the price source returned nothing (loaded {ok} of {n})"},
+    vCrash:{ru:"ПРОБЛЕМА: сканер упал: ",he:"בעיה: הסורק קרס: ",en:"PROBLEM: the scanner crashed: "}, vErr:{ru:"ПРОБЛЕМА: ошибка: ",he:"בעיה: שגיאה: ",en:"PROBLEM: error: "},
+    vStrict:{ru:"Данные есть (загружено {ok} из {n}), но строгий режим отфильтровал всё",he:"יש נתונים ({ok} מתוך {n}) אך המצב המחמיר סינן הכול",en:"Data loaded ({ok} of {n}) but strict mode filtered everything out"},
+    vEmpty:{ru:"Данные есть (загружено {ok} из {n}), подходящих сетапов нет — фильтры строгие или рынок спокойный",he:"יש נתונים ({ok} מתוך {n}) אך אין סטאפים מתאימים — מסננים מחמירים או שוק רגוע",en:"Data loaded ({ok} of {n}) but no setups match — filters are strict or the market is quiet"},
+    vNoFetch:{ru:"Загрузок цен не было (сканер взял кэш или не дошёл до загрузки). Результатов: {r}",he:"לא בוצעו הורדות מחירים (מטמון או שלא הגיע לשלב). תוצאות: {r}",en:"No price downloads happened (cache, or it never got that far). Results: {r}"},
+    last:{ru:"последний запуск",he:"הרצה אחרונה",en:"last run"}, dur:{ru:"длительность",he:"משך",en:"duration"}, mk:{ru:"биржа / сектор",he:"בורסה / סקטור",en:"exchange / sector"}, res:{ru:"результатов",he:"תוצאות",en:"results"}, pool:{ru:"пул проверки",he:"מאגר בדיקה",en:"candidate pool"}, ld:{ru:"загрузок цен: успешно / ошибок",he:"הורדות מחירים: הצליחו / נכשלו",en:"price downloads: ok / failed"}, avg:{ru:"среднее время загрузки",he:"זמן הורדה ממוצע",en:"avg download time"}, ms:{ru:"состояние рынка",he:"מצב השוק",en:"market state"},
+    tot:{ru:"всего запусков: {r} · с результатом {a} · пусто {b} · нет данных {c} · ошибок {d}",he:"סה״כ הרצות: {r} · עם תוצאה {a} · ריק {b} · אין נתונים {c} · שגיאות {d}",en:"runs: {r} · with results {a} · empty {b} · no data {c} · errors {d}"},
+    bad:{ru:"не загрузились",he:"לא נטענו",en:"failed to load"}, bgTag:{ru:"фон/тест",he:"רקע/בדיקה",en:"background/test"}, ago:{ru:"назад",he:"לפני",en:"ago"},
+    all:{ru:"▶ Прогнать все сканеры сейчас (тест, 1–3 мин)",he:"▶ הרץ את כל הסורקים עכשיו (בדיקה, 1–3 דק׳)",en:"▶ Run all scanners now (test, 1–3 min)"}, running:{ru:"идёт: ",he:"רץ: ",en:"running: "},
+    copy:{ru:"Копировать отчёт",he:"העתק דוח",en:"Copy report"}, copied:{ru:"Скопировано",he:"הועתק",en:"Copied"}, clear:{ru:"Очистить",he:"נקה",en:"Clear"},
+    note:{ru:"Тест-прогон запускает сканеры без экрана результатов с текущими биржей/сектором/параметрами. Отчёт пишется при каждом запуске, в том числе из авто-скана и виртуальной биржи.",he:"הרצת הבדיקה מפעילה את הסורקים בלי מסך תוצאות עם הבורסה/סקטור/פרמטרים הנוכחיים. הדוח נרשם בכל הפעלה, כולל סריקה אוטומטית והבורסה הווירטואלית.",en:"The test run starts the scanners without a results screen using the current exchange/sector/settings. A report is written on every run, including auto-scan and the virtual exchange."}
+  };
+  const tr=(k)=>(X[k]&&(X[k][LG]||X[k].ru))||k; const fm=(k,o)=>{ let v=tr(k); for(const q in (o||{})) v=v.replace("{"+q+"}",String(o[q])); return v; };
+  const H=(window.QESR&&window.QESR.get())||{}; const IDS=["smart","scan","crit","qual"];
+  const ago=(ts)=>{ if(!ts) return "—"; const d=Math.round((Date.now()-ts)/1000); return (d<90?d+" s":(d<5400?Math.round(d/60)+" min":Math.round(d/3600)+" h"))+" "+tr("ago"); };
+  const verdict=(h)=>{ const r=h&&h.last; if(!r) return [T.gray1,tr("never")]; const ok=r.f?r.f.ok:0, n=r.f?r.f.n:0;
+    if(r.err) return [T.red,tr("vErr")+r.err]; if(r.crash) return [T.red,tr("vCrash")+r.crash]; if(r.noData||(n>0&&ok===0)) return [T.red,fm("vNoData",{ok:ok,n:n})];
+    if(r.n>0) return [T.green,fm("vOk",{n:r.n})+(r.relaxed?tr("vRel"):"")]; if(n===0) return [T.gold,fm("vNoFetch",{r:r.n||0})]; if(r.strictNone) return [T.gold,fm("vStrict",{ok:ok,n:n})]; return [T.gold,fm("vEmpty",{ok:ok,n:n})]; };
+  const lines=(id)=>{ const h=H[id]; const r=h&&h.last; const L=[]; if(!r) return L; L.push([tr("last"),ago(r.t0)+(r.bg?" · "+tr("bgTag"):"")]); L.push([tr("dur"),(r.dur/1000).toFixed(1)+" s"]); L.push([tr("mk"),(r.exch||"—")+" / "+(r.sec||"—")]); L.push([tr("res"),r.err?"—":String(r.n)]);
+    if(r.poolN!=null) L.push([tr("pool"),String(r.poolN)]); if(r.f){ L.push([tr("ld"),r.f.ok+" / "+r.f.fail]); if(r.f.n) L.push([tr("avg"),Math.round(r.f.ms/r.f.n)+" ms"]); } if(r.mkt) L.push([tr("ms"),r.mkt]);
+    L.push(["Σ",fm("tot",{r:h.runs,a:h.ok,b:h.empty,c:h.nodata,d:h.err})]); return L; };
+  const text=()=>"QuantView "+(typeof QE_VERSION!=="undefined"?QE_VERSION:"")+" · "+new Date().toLocaleString()+"\n\n"+IDS.map(id=>{ const h=H[id]; const v=verdict(h); const o=[tr(id),v[1]]; lines(id).forEach(x=>o.push("  "+x[0]+": "+x[1])); const bad=h&&h.last&&h.last.f&&h.last.f.bad; if(bad&&bad.length) o.push("  "+tr("bad")+": "+bad.join("; ")); return o.join("\n"); }).join("\n\n");
+  const copy=()=>{ const tx=text(); const ok=()=>{ setCp(true); setTimeout(()=>setCp(false),2000); }; try{ navigator.clipboard.writeText(tx).then(ok); }catch(er){ try{ const ta=document.createElement("textarea"); ta.value=tx; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); ok(); }catch(e2){} } };
+  const runAll=async()=>{ if(busy||!window.EWEngine) return; const ex=cx.exch||"US", sec=cx.sector||"all", d=cx.days||10; const E=window.EWEngine;
+    const jobs=[["smart",()=>E.runSmartScan(null,ex,sec,true,{days:d})],["scan",()=>E.runScan(null,ex,cx.minVol||7,sec,true)],["crit",()=>E.screenStocks(null,ex,{risingOnly:true},sec)],
+      ["qual",()=>{ let pq=null; try{ pq=parseQualityQuery(cx.qQuery||"A,B"); }catch(er){} if(!pq||pq.err) pq=parseQualityQuery("A,B"); return E.runSmartScan(null,ex,sec,true,{days:d,qpred:qualityPred(pq)}); }]];
+    for(const j of jobs){ setBusy(j[0]); try{ await j[1](); }catch(er){} } setBusy(""); setN(x=>x+1); };
+  const btn=(c)=>({background:T.bg2,border:`1px solid ${c}`,color:c===T.border?T.white:c,borderRadius:"9px",padding:"8px 11px",fontSize:"12px",fontFamily:"monospace",fontWeight:"800",cursor:"pointer"});
+  return e("div",{"data-testid":"scanrep",style:{width:"100%",maxWidth:"360px",margin:"10px 0"}},
+    e("button",{onClick:()=>setOpen(!open),"data-testid":"scanrep-btn","aria-expanded":open?"true":"false",style:{...btn(T.cyan),width:"100%",padding:"11px 14px"}},tr("btn")+(open?" ▾":" ▸")),
+    open&&e("div",{style:{marginTop:"8px"}},
+      e("div",{style:{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"6px"}},
+        e("button",{onClick:runAll,disabled:!!busy,"data-testid":"scanrep-all",style:{...btn(T.green),opacity:busy?0.6:1}},busy?(tr("running")+tr(busy)):tr("all")),
+        e("button",{onClick:copy,"data-testid":"scanrep-copy",style:btn(T.border)},cp?("✓ "+tr("copied")):tr("copy")),
+        e("button",{onClick:()=>{ try{ window.QESR.clear(); }catch(er){} setN(x=>x+1); },style:btn(T.border)},tr("clear"))),
+      IDS.map(id=>{ const h=H[id]; const v=verdict(h); return e("div",{key:id,"data-testid":"scanrep-"+id,style:{border:`1px solid ${v[0]}66`,borderRadius:"10px",padding:"8px 10px",marginTop:"8px",background:T.bg1}},
+        e("div",{style:{fontSize:"13px",color:T.white,fontFamily:"monospace",fontWeight:"800"}},tr(id)),
+        e("div",{"data-testid":"scanrep-v-"+id,style:{fontSize:"11.5px",color:v[0],fontFamily:"monospace",fontWeight:"700",lineHeight:1.4,margin:"3px 0 5px"}},v[1]),
+        lines(id).map((x,i)=>e("div",{key:i,style:{display:"flex",justifyContent:"space-between",gap:"8px",fontSize:"11.5px",fontFamily:"monospace",color:T.gray1,lineHeight:1.5}},e("span",null,x[0]),e("span",{style:{color:T.white,fontWeight:"700",textAlign:"end"}},x[1]))),
+        h&&h.last&&h.last.f&&h.last.f.bad&&h.last.f.bad.length>0&&e("div",{style:{fontSize:"11px",fontFamily:"monospace",color:T.red,marginTop:"4px",lineHeight:1.4}},tr("bad")+": "+h.last.f.bad.join("; "))); }),
+      e("div",{style:{fontSize:"10.8px",color:T.gray2,fontFamily:"monospace",marginTop:"8px",lineHeight:1.5}},tr("note"))));
+}
 function VxNetCheck(props){
   const e=React.createElement; const T=props.T; const LG=props.LANG||"ru";
   const X={
@@ -20864,6 +20939,7 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
             qMsg&&e("div",{style:{fontSize:"12px",color:T.gray1,fontFamily:"monospace",marginTop:"7px",lineHeight:1.45}},qMsg),
             e(VxTip,{T:T,txt:t("q_help")})),
 
+          e(ScanReport,{T:T,LANG:LANG,ctx:{exch:exch,sector:exch==="US"?sector:"all",minVol:minVol,days:scanHorizon,qQuery:qQuery}}),
           // ── Auto-scan toggle ───────────────────────────────────────
           e("button",{onClick:()=>setAutoScan(v=>!v),style:{
             display:"flex",alignItems:"center",gap:"10px",
