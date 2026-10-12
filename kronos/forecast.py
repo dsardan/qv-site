@@ -118,8 +118,10 @@ def main():
         for b, r in zip(coins, res): paths[b].append([float(x) for x in r["close"].values])
         if s == 0: print("first batch %.1fs" % (time.time() - t0))
     asof = dt.datetime.utcfromtimestamp(last / 1000).strftime("%Y-%m-%d")      # open date of the last closed candle
-    out_c = {}
+    out_c = {}; bad = []
     for b in coins:
+        if abs(q([pp[-1] / data[b][-1][4] - 1 for pp in paths[b]], .5)) > 0.35:   # implausible 7-day median move -> model out of its depth on this series
+            bad.append(b); print("SANITY drop %s: median 7d %.1f%%, closes tail %s" % (b, 100 * q([pp[-1] / data[b][-1][4] - 1 for pp in paths[b]], .5), [round(r[4], 6) for r in data[b][-5:]])); continue
         l0 = data[b][-1][4]; fin = [p[-1] / l0 - 1 for p in paths[b]]
         d1 = [p[0] / l0 - 1 for p in paths[b]]
         out_c[b + "-USD"] = {"p": round(sum(1 for x in fin if x > 0) / len(fin), 3), "med": round(q(fin, .5), 4), "q10": round(q(fin, .1), 4), "q90": round(q(fin, .9), 4),
@@ -139,7 +141,7 @@ def main():
     up = sum(1 for h in done if h["res"] > 0) / n if n else None
     track = {"n": n, "hit": None if hit is None else round(hit, 3), "base": None if up is None else round(max(up, 1 - up), 3),
              "days": len({h["d"] for h in done})}
-    doc = {"v": 1, "model": "NeoQuasar/Kronos-small" if not STUB else "STUB", "stub": STUB, "asof": asof, "gen": int(time.time()), "h": H, "ns": NS, "look": LOOK, "coins": out_c, "track": track}
+    doc = {"v": 1, "model": "NeoQuasar/Kronos-small" if not STUB else "STUB", "stub": STUB, "asof": asof, "gen": int(time.time()), "h": H, "ns": NS, "look": LOOK, "coins": out_c, "track": track, "dropped": bad}
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w") as f: json.dump(doc, f, separators=(",", ":"))
     with open(HIST, "w") as f: json.dump(hist, f, separators=(",", ":"))
