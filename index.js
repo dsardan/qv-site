@@ -1,3 +1,4 @@
+import { inviteApi, joinPage, hasAccess, closedPage } from "./invite.js";
 // QuantView CORS relay — Cloudflare Worker (v2).
 //
 // Why this exists: the app runs from file:// inside a WebView, so every source that does
@@ -18,7 +19,7 @@
 //   • per-host cache TTL (quotes must not be cached for a minute) and per-host headers.
 // Usage:  GET  https://<relay>/?url=<encoded https url>      GET /health      WS /ws/binance
 
-const VERSION = "2.1";   // 2.1: also serves the static site (./site) on non-relay hosts
+const VERSION = "2.2";   // 2.2: invitation-only /app/ + owner invite API   // 2.1: also serves the static site (./site) on non-relay hosts
 
 // host → policy.  ttl: edge cache seconds (0 = never cache).  ref: Referer to send.  auth: forward Authorization.
 const POLICY = {
@@ -73,6 +74,15 @@ export default {
 
     // The same Worker serves the website (./site, via the ASSETS binding) on every host that is not the relay:
     //   relay.<domain>, any ?url= call and the /ws/* routes stay relay-only; everything else is a static file.
+    // Invitation-only web app: /api/* (owner), /join/<id> (invitee), /app/* gated by a signed session cookie.
+    if (url.pathname.startsWith("/api/")) return inviteApi(request, env, url);
+    if (url.pathname.startsWith("/join/")) return joinPage(request, env, url);
+    if (url.pathname === "/app") return Response.redirect(url.origin + "/app/", 301);
+    if (url.pathname.startsWith("/app/") && !url.hostname.startsWith("relay.")) {
+      if (!(await hasAccess(request, env))) return closedPage();
+      const r = await env.ASSETS.fetch(request); const h = new Headers(r.headers); h.set("Cache-Control", "private, no-store"); return new Response(r.body, { status: r.status, headers: h });
+    }
+
     const isRelay = url.hostname.startsWith("relay.") || url.searchParams.has("url") || !!WS_ROUTES[url.pathname]
       || (request.method === "OPTIONS");
     if (!isRelay && url.pathname !== "/health" && env && env.ASSETS) return env.ASSETS.fetch(request);

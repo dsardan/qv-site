@@ -8,6 +8,8 @@
     { "pattern": "futuretrainingnow.com", "custom_domain": true },
     { "pattern": "relay.futuretrainingnow.com", "custom_domain": true }
   ],
+  // Invitations (id + owner label + expiry + counter only). Secret ADMIN_KEY is set in the dashboard, never in git.
+  "kv_namespaces": [{ "binding": "INVITES", "id": "75f5bb5ee1f6463bb20419f169e3a553" }],
   "assets": {
     "directory": "./site",
     "binding": "ASSETS",
