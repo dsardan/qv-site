@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.147</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.148</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.147";
+const QE_VERSION = "15.12.148";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -923,7 +923,7 @@ const NDX100 = ["AAPL","MSFT","NVDA","AMZN","META","AVGO","GOOGL","GOOG","TSLA",
   "GILD","LRCX","MU","PANW","KLAC","SNPS","CDNS","MAR","ASML","ORLY",
   "MELI","CSX","ABNB","FTNT","ADI","PYPL","NXPI","CRWD","CHTR","MRVL",
   "DASH","PCAR","CPRT","ROP","MNST","KDP","AEP","CTAS","DDOG","FAST",
-  "ROST","EA","VRSK","EXC","BKR","XEL","CTSH","TTD","IDXX","DXCM",
+  "ROST","VRSK","EXC","BKR","XEL","CTSH","TTD","IDXX","DXCM",
   "ZS","ON","CDW","BIIB","MDB","TEAM","WDAY","GEHC","SMCI",
   "ARM","PLTR","APP","LULU","TTWO","WBD","ENPH","ALGN","EBAY","SIRI"];
 // Merged, de-duplicated index universe
@@ -943,7 +943,7 @@ const US_SECTORS = {
   technology: ["AAPL","MSFT","NVDA","AVGO","ORCL","ADBE","CSCO","QCOM","TXN","AMD",
                "INTC","MU","AMAT","LRCX","KLAC","ARM","MRVL","NOW","CRM","INTU",               "PANW","CRWD","NET","SNOW","DDOG","ZS","PLTR","SMCI","DELL","ON"],
   communication: ["GOOGL","META","NFLX","DIS","CMCSA","T","VZ","TMUS","CHTR","WBD",
-                  "EA","TTWO","OMC","SNAP","PINS","RBLX","SPOT","ROKU","MTCH","LYV"],
+                  "TTWO","OMC","SNAP","PINS","RBLX","SPOT","ROKU","MTCH","LYV"],
   consumer_disc: ["AMZN","TSLA","HD","MCD","NKE","LOW","SBUX","TJX","BKNG","ABNB",
                   "MAR","GM","F","CMG","ORLY","ROST","YUM","UBER","DASH","CVNA"],
   consumer_staples: ["WMT","PG","COST","KO","PEP","PM","MO","MDLZ","CL","TGT",
@@ -955,7 +955,7 @@ const US_SECTORS = {
   industrials: ["CAT","GE","RTX","UNP","HON","BA","UPS","DE","LMT","ADP",
                 "ETN","NOC","WM","EMR","CSX","GD","FDX","NSC","ITW","MMM"],
   energy: ["XOM","CVX","COP","SLB","EOG","MPC","PSX","WMB","OXY","VLO",
-           "KMI","HAL","DVN","BKR","FANG","OKE","CTRA"],  // PXD→XOM(2024), HES→CVX(2024-25), MRO→COP(2024): delisted, every scan burned 3.5+3.5+3.5s on each before blacklisting
+           "KMI","HAL","DVN","BKR","FANG","OKE"],  // PXD→XOM(2024), HES→CVX(2024-25), MRO→COP(2024): delisted, every scan burned 3.5+3.5+3.5s on each before blacklisting
   materials: ["LIN","APD","SHW","FCX","ECL","NEM","DOW","DD","NUE","CTVA",
               "VMC","MLM","PPG","ALB","IFF","CF","MOS","STLD","CE","PKG"],
   utilities: ["NEE","DUK","SO","D","AEP","SRE","EXC","XEL","ED","PEG",
@@ -971,22 +971,22 @@ const US_SECTORS = {
 // feeds and are current as of the knowledge cutoff; any that fail are blacklisted on first miss.
 const US_EXTRA = [
   // Technology / semis / software
-  "ADSK","AME","ANSS","APH","CDW","FI","FICO","GLW","HPQ","HPE","IT","JBL","KEYS","MCHP","MSI",
+  "ADSK","AME","APH","CDW","FISV","FICO","GLW","HPQ","HPE","IT","JBL","KEYS","MCHP","MSI",
   "MPWR","NTAP","PTC","STX","SWKS","TDY","TER","TRMB","TYL","WDC","ZBRA","AKAM","JNPR","FFIV",
   "GEN","EPAM","GDDY","PAYC","PAYX","BR","JKHY","VRSN","ANET","TEL","GRMN",
   // Communication services
-  "FOXA","FOX","NWSA","PARA","IPG",
+  "FOXA","FOX","NWSA","PSKY",
   // Consumer discretionary
   "APTV","AZO","BBY","BWA","DHI","DRI","EXPE","GPC","HAS","HLT","KMX","LEN","LKQ","LVS","MGM",
   "NCLH","NVR","PHM","POOL","RCL","RL","TSCO","ULTA","WYNN","DPZ","DG","DLTR","WHR","MHK","TPR","CCL",
   // Consumer staples
-  "BG","CAG","CHD","CLX","CPB","EL","HRL","K","LW","MKC","TAP","TSN","WBA","KVUE","SJM",
+  "BG","CAG","CHD","CLX","CPB","EL","HRL","LW","MKC","TAP","TSN","KVUE","SJM",
   // Financials
   "AIG","AFL","ALL","AJG","AMP","BEN","BK","BRO","CBOE","CFG","CINF","CME","DFS","FITB","GL",
   "HBAN","HIG","IVZ","KEY","L","MCO","MKTX","MMC","MSCI","NDAQ","NTRS","PFG","PRU","RF","RJF",
   "SYF","TFC","TROW","TRV","WTW","WRB","ACGL","STT","FDS","EG",
   // Healthcare
-  "A","BAX","BDX","CAH","CI","CNC","COO","COR","DGX","DVA","EW","HOLX","HUM","ILMN","IQV","LH",
+  "A","BAX","BDX","CAH","CI","CNC","COO","COR","DGX","DVA","EW","HUM","ILMN","IQV","LH",
   "MCK","MOH","MTD","PODD","RMD","RVTY","STE","SYK","TECH","TFX","UHS","WAT","WST","ZBH","VTRS","CRL",
   // Industrials
   "AOS","AXON","BLDR","CARR","CHRW","CMI","DAL","DOV","EFX","EXPD","FTV","GNRC","GWW","HII","HUBB",
@@ -1734,6 +1734,7 @@ try{ window.QEBin=QEBin; setTimeout(()=>{ try{ QEBin.refresh(false); }catch(e){}
 
 async function fetchOHLC(symbol, opts){   /* vc594: counts every price download for the per-scanner report (QESR) */
   const _t0=Date.now();
+  if(!(opts&&opts.force)&&window.QESR&&window.QESR.isDead(symbol)){ window.QESR.skip(); throw new Error("delisted (auto-excluded): "+symbol); }
   try{ const r=await _fetchOHLCraw(symbol,opts); try{ window.QESR&&window.QESR.f(symbol,!!(r&&r.length>=40),Date.now()-_t0); }catch(_){} return r; }
   catch(e){ try{ window.QESR&&window.QESR.f(symbol,false,Date.now()-_t0,e&&e.message); }catch(_){} throw e; }
 }
@@ -10542,12 +10543,17 @@ window.EWEngine = { fetchAnalystSources, REPUTABLE_FIRMS, brokerStance, fetchAna
 /* vc594: per-scanner run recorder. Wraps the four search scanners (smart / scan / criteria / quality) once, for every caller (UI, auto-scan, virtual exchange). */
 window.QESR=(function(){
   var KEY="qe_scan_rep", H={}; try{ H=JSON.parse(localStorage.getItem(KEY)||"{}")||{}; }catch(e){ H={}; }
-  var stack=[]; function save(){ try{ localStorage.setItem(KEY,JSON.stringify(H)); }catch(e){} }
-  function f(sym,ok,ms,err){ var r=stack[stack.length-1]; if(!r) return; r.f.n++; if(ok) r.f.ok++; else{ r.f.fail++; if(r.f.bad.length<6) r.f.bad.push(String(sym)+(err?(": "+String(err).slice(0,70)):"")); } r.f.ms+=ms; }
+  var stack=[]; function save(){ try{ var c=JSON.parse(JSON.stringify(H)); localStorage.setItem(KEY,JSON.stringify(c)); }catch(e){} }
+  /* vc594b: auto-quarantine of delisted tickers. A symbol that fails in 3 runs at least 6 h apart while the data source is clearly up (>=20 other downloads ok) is skipped for 14 days; one success revives it. */
+  var DK="qe_dead_tk", DEAD={}; try{ DEAD=JSON.parse(localStorage.getItem(DK)||"{}")||{}; }catch(e){ DEAD={}; } var TTL=14*864e5;
+  function dsave(){ try{ localStorage.setItem(DK,JSON.stringify(DEAD)); }catch(e){} }
+  function isDead(sym){ var d=DEAD[sym]; return !!(d&&d.n>=3&&Date.now()-d.ts<TTL); }
+  function f(sym,ok,ms,err){ if(ok&&DEAD[sym]){ delete DEAD[sym]; dsave(); } var r=stack[stack.length-1]; if(!r) return; if(!ok){ (r.f.all||(r.f.all=[])).push(String(sym)); } r.f.n++; if(ok) r.f.ok++; else{ r.f.fail++; if(r.f.bad.length<6) r.f.bad.push(String(sym)+(err?(": "+String(err).slice(0,70)):"")); } r.f.ms+=ms; }
   function wrap(name,idOf,exOf,secOf){ var orig=window.EWEngine[name]; if(typeof orig!=="function"||orig.__qesr) return;
     var w=async function(){ var a=arguments; var id=idOf(a); var rec={id:id,t0:Date.now(),bg:typeof a[0]!=="function",exch:exOf(a),sec:secOf(a),f:{n:0,ok:0,fail:0,ms:0,bad:[]}}; stack.push(rec); var res,thr=null;
       try{ res=await orig.apply(this,a); }catch(e){ thr=e; }
       stack=stack.filter(function(x){ return x!==rec; }); rec.dur=Date.now()-rec.t0;
+      try{ if(rec.f.ok>=20&&rec.f.fail<=rec.f.n*0.5&&rec.f.all){ var seen={}; rec.f.all.forEach(function(sy){ if(seen[sy]) return; seen[sy]=1; var d=DEAD[sy]||(DEAD[sy]={n:0,ts:0}); if(d.n>0&&Date.now()-d.ts<216e5) return; d.n++; d.ts=Date.now(); if(d.n===3){ rec.f.newDead=(rec.f.newDead||[]); rec.f.newDead.push(sy); try{ window.QELog&&window.QELog.warn("QESR","ticker auto-excluded (no data in 3 runs): "+sy); }catch(_){} } }); dsave(); } }catch(_){} try{ delete rec.f.all; }catch(_){}
       if(thr){ rec.err=String(thr&&thr.message||thr).slice(0,200); }
       else{ rec.n=(res&&res.length)||0; if(res){ rec.noData=!!res._noData; rec.crash=res._crash?String(res._crash).slice(0,160):""; rec.strictNone=!!res._strictNone; rec.relaxed=!!res._relaxed; rec.poolN=res._poolN!=null?res._poolN:null; rec.mkt=res._marketState||""; rec.asOf=res._asOf||0; } }
       try{ var h=H[id]||(H[id]={runs:0,ok:0,empty:0,nodata:0,err:0}); h.runs++; if(thr||rec.crash) h.err++; else if(rec.noData) h.nodata++; else if(rec.n>0) h.ok++; else h.empty++; h.last=rec; save(); }catch(e){}
@@ -10556,7 +10562,7 @@ window.QESR=(function(){
   wrap("runSmartScan",function(a){ return (a[4]&&a[4].qpred)?"qual":"smart"; },function(a){ return a[1]; },function(a){ return a[2]; });
   wrap("runScan",function(){ return "scan"; },function(a){ return a[1]; },function(a){ return a[3]; });
   wrap("screenStocks",function(){ return "crit"; },function(a){ return a[1]; },function(a){ return a[3]; });
-  return {f:f,get:function(){ return H; },clear:function(){ H={}; save(); }};
+  return {f:f,get:function(){ return H; },clear:function(){ H={}; save(); },isDead:isDead,dead:function(){ return Object.keys(DEAD).filter(isDead).map(function(k){ return [k,DEAD[k].n,DEAD[k].ts]; }); },revive:function(){ DEAD={}; dsave(); },skip:function(){ var r=stack[stack.length-1]; if(r) r.f.skip=(r.f.skip||0)+1; }};
 })();
 
 </script>
@@ -15156,6 +15162,7 @@ function ScanReport(props){
     bad:{ru:"не загрузились",he:"לא נטענו",en:"failed to load"}, bgTag:{ru:"фон/тест",he:"רקע/בדיקה",en:"background/test"}, ago:{ru:"назад",he:"לפני",en:"ago"},
     all:{ru:"▶ Прогнать все сканеры сейчас (тест, 1–3 мин)",he:"▶ הרץ את כל הסורקים עכשיו (בדיקה, 1–3 דק׳)",en:"▶ Run all scanners now (test, 1–3 min)"}, running:{ru:"идёт: ",he:"רץ: ",en:"running: "},
     copy:{ru:"Копировать отчёт",he:"העתק דוח",en:"Copy report"}, copied:{ru:"Скопировано",he:"הועתק",en:"Copied"}, clear:{ru:"Очистить",he:"נקה",en:"Clear"},
+    dead:{ru:"Авто-исключены как снятые с торгов (нет данных в 3 запусках с интервалом от 6 ч при рабочем источнике; на 14 дней, при первой успешной загрузке возвращаются)",he:"הוחרגו אוטומטית כמניות שהוסרו מהמסחר (אין נתונים ב-3 הרצות כשהמקור תקין; ל-14 יום, חוזרות עם הורדה מוצלחת)",en:"Auto-excluded as delisted (no data in 3 runs while the source works; for 14 days, restored on the first successful download)"}, noDead:{ru:"Исключённых тикеров нет",he:"אין טיקרים שהוחרגו",en:"No excluded tickers"}, revive:{ru:"Вернуть все",he:"החזר הכול",en:"Restore all"}, newDead:{ru:"исключены в этом запуске",he:"הוחרגו בהרצה זו",en:"excluded in this run"}, skipped:{ru:"пропущено (исключены ранее)",he:"דולגו (הוחרגו קודם)",en:"skipped (excluded earlier)"},
     note:{ru:"Тест-прогон запускает сканеры без экрана результатов с текущими биржей/сектором/параметрами. Отчёт пишется при каждом запуске, в том числе из авто-скана и виртуальной биржи.",he:"הרצת הבדיקה מפעילה את הסורקים בלי מסך תוצאות עם הבורסה/סקטור/פרמטרים הנוכחיים. הדוח נרשם בכל הפעלה, כולל סריקה אוטומטית והבורסה הווירטואלית.",en:"The test run starts the scanners without a results screen using the current exchange/sector/settings. A report is written on every run, including auto-scan and the virtual exchange."}
   };
   const tr=(k)=>(X[k]&&(X[k][LG]||X[k].ru))||k; const fm=(k,o)=>{ let v=tr(k); for(const q in (o||{})) v=v.replace("{"+q+"}",String(o[q])); return v; };
@@ -15165,9 +15172,10 @@ function ScanReport(props){
     if(r.err) return [T.red,tr("vErr")+r.err]; if(r.crash) return [T.red,tr("vCrash")+r.crash]; if(r.noData||(n>0&&ok===0)) return [T.red,fm("vNoData",{ok:ok,n:n})];
     if(r.n>0) return [T.green,fm("vOk",{n:r.n})+(r.relaxed?tr("vRel"):"")]; if(n===0) return [T.gold,fm("vNoFetch",{r:r.n||0})]; if(r.strictNone) return [T.gold,fm("vStrict",{ok:ok,n:n})]; return [T.gold,fm("vEmpty",{ok:ok,n:n})]; };
   const lines=(id)=>{ const h=H[id]; const r=h&&h.last; const L=[]; if(!r) return L; L.push([tr("last"),ago(r.t0)+(r.bg?" · "+tr("bgTag"):"")]); L.push([tr("dur"),(r.dur/1000).toFixed(1)+" s"]); L.push([tr("mk"),(r.exch||"—")+" / "+(r.sec||"—")]); L.push([tr("res"),r.err?"—":String(r.n)]);
-    if(r.poolN!=null) L.push([tr("pool"),String(r.poolN)]); if(r.f){ L.push([tr("ld"),r.f.ok+" / "+r.f.fail]); if(r.f.n) L.push([tr("avg"),Math.round(r.f.ms/r.f.n)+" ms"]); } if(r.mkt) L.push([tr("ms"),r.mkt]);
+    if(r.poolN!=null) L.push([tr("pool"),String(r.poolN)]); if(r.f&&r.f.skip) L.push([tr("skipped"),String(r.f.skip)]); if(r.f&&r.f.newDead&&r.f.newDead.length) L.push([tr("newDead"),r.f.newDead.join(", ")]); if(r.f){ L.push([tr("ld"),r.f.ok+" / "+r.f.fail]); if(r.f.n) L.push([tr("avg"),Math.round(r.f.ms/r.f.n)+" ms"]); } if(r.mkt) L.push([tr("ms"),r.mkt]);
     L.push(["Σ",fm("tot",{r:h.runs,a:h.ok,b:h.empty,c:h.nodata,d:h.err})]); return L; };
-  const text=()=>"QuantView "+(typeof QE_VERSION!=="undefined"?QE_VERSION:"")+" · "+new Date().toLocaleString()+"\n\n"+IDS.map(id=>{ const h=H[id]; const v=verdict(h); const o=[tr(id),v[1]]; lines(id).forEach(x=>o.push("  "+x[0]+": "+x[1])); const bad=h&&h.last&&h.last.f&&h.last.f.bad; if(bad&&bad.length) o.push("  "+tr("bad")+": "+bad.join("; ")); return o.join("\n"); }).join("\n\n");
+  const deadL=(window.QESR&&window.QESR.dead())||[];
+  const text=()=>"QuantView "+(typeof QE_VERSION!=="undefined"?QE_VERSION:"")+" · "+new Date().toLocaleString()+"\n\n"+IDS.map(id=>{ const h=H[id]; const v=verdict(h); const o=[tr(id),v[1]]; lines(id).forEach(x=>o.push("  "+x[0]+": "+x[1])); const bad=h&&h.last&&h.last.f&&h.last.f.bad; if(bad&&bad.length) o.push("  "+tr("bad")+": "+bad.join("; ")); return o.join("\n"); }).join("\n\n")+"\n\n"+tr("dead")+": "+(deadL.length?deadL.map(x=>x[0]).join(", "):tr("noDead"));
   const copy=()=>{ const tx=text(); const ok=()=>{ setCp(true); setTimeout(()=>setCp(false),2000); }; try{ navigator.clipboard.writeText(tx).then(ok); }catch(er){ try{ const ta=document.createElement("textarea"); ta.value=tx; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); ok(); }catch(e2){} } };
   const runAll=async()=>{ if(busy||!window.EWEngine) return; const ex=cx.exch||"US", sec=cx.sector||"all", d=cx.days||10; const E=window.EWEngine;
     const jobs=[["smart",()=>E.runSmartScan(null,ex,sec,true,{days:d})],["scan",()=>E.runScan(null,ex,cx.minVol||7,sec,true)],["crit",()=>E.screenStocks(null,ex,{risingOnly:true},sec)],
@@ -15186,6 +15194,10 @@ function ScanReport(props){
         e("div",{"data-testid":"scanrep-v-"+id,style:{fontSize:"11.5px",color:v[0],fontFamily:"monospace",fontWeight:"700",lineHeight:1.4,margin:"3px 0 5px"}},v[1]),
         lines(id).map((x,i)=>e("div",{key:i,style:{display:"flex",justifyContent:"space-between",gap:"8px",fontSize:"11.5px",fontFamily:"monospace",color:T.gray1,lineHeight:1.5}},e("span",null,x[0]),e("span",{style:{color:T.white,fontWeight:"700",textAlign:"end"}},x[1]))),
         h&&h.last&&h.last.f&&h.last.f.bad&&h.last.f.bad.length>0&&e("div",{style:{fontSize:"11px",fontFamily:"monospace",color:T.red,marginTop:"4px",lineHeight:1.4}},tr("bad")+": "+h.last.f.bad.join("; "))); }),
+      e("div",{"data-testid":"scanrep-dead",style:{border:`1px solid ${T.border}`,borderRadius:"10px",padding:"8px 10px",marginTop:"8px",background:T.bg1}},
+        e("div",{style:{fontSize:"11px",color:T.gray1,fontFamily:"monospace",lineHeight:1.4}},tr("dead")),
+        e("div",{style:{fontSize:"12px",color:deadL.length?T.gold:T.gray2,fontFamily:"monospace",fontWeight:"700",marginTop:"4px"}},deadL.length?deadL.map(x=>x[0]).join(", "):tr("noDead")),
+        deadL.length>0&&e("button",{onClick:()=>{ try{ window.QESR.revive(); }catch(er){} setN(x=>x+1); },style:{...btn(T.border),marginTop:"6px"}},tr("revive"))),
       e("div",{style:{fontSize:"10.8px",color:T.gray2,fontFamily:"monospace",marginTop:"8px",lineHeight:1.5}},tr("note"))));
 }
 function VxNetCheck(props){
