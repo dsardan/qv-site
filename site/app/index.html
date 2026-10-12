@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.138</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.139</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.138";
+const QE_VERSION = "15.12.139";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -15019,6 +15019,49 @@ function InvitePanel(props){
         e("button",{onClick:()=>{ const u=base().replace(/^(https?:\/\/)relay\./,"$1")+"/join/"+it.id; copy(u); },style:btn(T.cyan),title:tr("copy")},"⧉"),
         e("button",{onClick:()=>revoke(it.id),disabled:busy,style:btn(T.red)},tr("revoke"))))));
 }
+// ── Live scalping monitor (vc586): always visible on the virtual-exchange screen. Shows what the turbo engine is doing right now, per market.
+function VxScalpMon(props){
+  const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const tb=props.tb||{}; const mk=props.mk||{}; const on=!!props.scalpOn;
+  const [,setN]=useState(0); useEffect(()=>{ const id=setInterval(()=>setN(x=>x+1),1000); return ()=>clearInterval(id); },[]);
+  const X={
+    title:{ru:"⚡ Скальпинг",he:"⚡ סקאלפינג",en:"⚡ Scalping"},
+    run:{ru:"● РАБОТАЕТ",he:"● פועל",en:"● RUNNING"}, off:{ru:"■ ВЫКЛ (вами)",he:"■ כבוי (על ידך)",en:"■ OFF (by you)"}, stall:{ru:"⚠ НЕТ ЦИКЛА",he:"⚠ אין מחזור",en:"⚠ NO CYCLE"},
+    cr:{ru:"₿ Крипто · 24/7",he:"₿ קריפטו · 24/7",en:"₿ Crypto · 24/7"}, st:{ru:"📈 Акции США",he:"📈 מניות ארה״ב",en:"📈 US stocks"},
+    mOff:{ru:"выключено вами",he:"כבוי על ידך",en:"switched off by you"}, closed:{ru:"сессия США закрыта — ждёт открытия",he:"המסחר בארה״ב סגור — ממתין לפתיחה",en:"US session closed — waiting for the open"},
+    scan:{ru:"сканирую {w} · сделок {n}/{m}",he:"סורק {w} · עסקאות {n}/{m}",en:"scanning {w} · trades {n}/{m}"}, noq:{ru:"нет цен от источника — повторяю",he:"אין מחירים מהמקור — מנסה שוב",en:"no prices from the source — retrying"}, wait:{ru:"запускаю…",he:"מתחיל…",en:"starting…"},
+    cycle:{ru:"цикл",he:"מחזור",en:"cycle"}, ago:{ru:"с назад",he:"לפני",en:"ago"}, trades:{ru:"сделок",he:"עסקאות",en:"trades"}, net:{ru:"итог",he:"סה״כ",en:"net"},
+    master:{ru:"Остановить скальпинг",he:"עצור סקאלפינג",en:"Stop scalping"}, masterOn:{ru:"Запустить скальпинг",he:"הפעל סקאלפינג",en:"Start scalping"},
+    wake:{ru:"Не гасить экран, пока скальпинг работает",he:"אל תכבה את המסך בזמן סקאלפינג",en:"Keep the screen on while scalping"},
+    note:{ru:"Скальпинг не останавливается сам: работает, пока вы не нажмёте «Остановить». Условие: приложение открыто на экране (Android усыпляет фон). Выходы — только цель, стоп или разворот по протоколу.",he:"הסקאלפינג לא נעצר מעצמו: פועל עד שתלחץ «עצור». תנאי: האפליקציה פתוחה על המסך (אנדרואיד מרדים רקע). יציאות — רק יעד, סטופ או היפוך לפי הפרוטוקול.",en:"Scalping never stops by itself: it runs until you press “Stop”. Requirement: the app stays open on screen (Android freezes the background). Exits only at target, stop or reversal per the protocol."}
+  };
+  const tr=(k)=>(X[k]&&(X[k][LG]||X[k].ru))||k;
+  const hb=props.hb?props.hb():0; const age=hb?Math.round((Date.now()-hb)/1000):null; const stalled=on&&age!=null&&age>20;
+  const [wake,setWake]=useState(()=>{ try{ return localStorage.getItem("qe_tb_wake")!=="0"; }catch(er){ return true; } });
+  const mst=tb.mst||{};
+  const stTxt=(k)=>{ const m=mst[k]; const flag=k==="CR"?mk.cr:mk.st; if(!flag) return tr("mOff"); if(!m) return tr("wait"); if(m.st==="off") return tr("mOff"); if(m.st==="closed") return tr("closed"); if(m.st==="noq") return tr("noq"); return tr("scan").replace("{w}",String(m.w)).replace("{n}",String(m.nS)).replace("{m}",String(m.max)); };
+  const col=(k)=>{ const m=mst[k]; const flag=k==="CR"?mk.cr:mk.st; if(!on||!flag) return T.gray2; if(!m) return T.gray1; if(m.st==="run") return T.green; if(m.st==="closed") return T.amber||T.gold; return T.red; };
+  const sw=(k,flag,lab)=>e("div",{key:k,style:{display:"flex",alignItems:"center",gap:"10px",padding:"7px 0",borderTop:`1px solid ${T.border}`}},
+    e("button",{onClick:()=>props.onMk&&props.onMk(k,!flag),"data-testid":"tbmk-"+k,"aria-pressed":flag?"true":"false",style:{flex:"0 0 auto",width:"46px",height:"26px",borderRadius:"13px",border:`1.5px solid ${flag?T.green:T.border}`,background:flag?`${T.green}33`:T.bg2,position:"relative",cursor:"pointer",padding:0}},
+      e("span",{style:{position:"absolute",top:"2px",left:flag?"22px":"2px",width:"19px",height:"19px",borderRadius:"50%",background:flag?T.green:T.gray2,transition:"left .15s"}})),
+    e("div",{style:{minWidth:0,flex:1}},
+      e("div",{style:{fontSize:"13px",color:T.white,fontFamily:"monospace",fontWeight:"800"}},lab),
+      e("div",{"data-testid":"tbst-"+k,style:{fontSize:"11.5px",color:col(k),fontFamily:"monospace",lineHeight:1.35}},on?stTxt(k):tr("off"))));
+  const thr=(tb.thr||[]).slice(0,8);
+  return e("div",{"data-testid":"tbmon",style:{background:T.bg1,border:`1px solid ${stalled?T.red:(on?T.cyan:T.border)}66`,borderRadius:"12px",padding:"10px 12px",marginBottom:"12px"}},
+    e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px",marginBottom:"6px"}},
+      e("div",{style:{fontSize:"14px",color:T.cyan,fontFamily:"monospace",fontWeight:"900"}},tr("title")),
+      e("div",{"data-testid":"tbbadge",style:{fontSize:"11.5px",fontFamily:"monospace",fontWeight:"900",color:stalled?T.red:(on?T.green:T.gray2)}},stalled?tr("stall"):(on?tr("run"):tr("off")))),
+    sw("CR",!!mk.cr,tr("cr")), sw("ST",!!mk.st,tr("st")),
+    thr.length>0&&e("div",{style:{display:"flex",flexWrap:"wrap",gap:"6px",padding:"6px 0",borderTop:`1px solid ${T.border}`}},
+      thr.map(h=>e("span",{key:h.tk,style:{fontSize:"11.5px",fontFamily:"monospace",color:(h.fav||0)>=0?T.green:T.red,background:T.bg2,borderRadius:"8px",padding:"2px 8px"}},h.tk.replace("-USD","")+" "+(h.side==="long"?"▲":"▼")+" "+((h.fav||0)>=0?"+":"")+(h.fav!=null?(+h.fav).toFixed(2):"0")+"%"))),
+    e("div",{style:{fontSize:"11.5px",color:T.gray1,fontFamily:"monospace",padding:"6px 0",borderTop:`1px solid ${T.border}`,lineHeight:1.5}},
+      tr("cycle")+": "+(age==null?"—":age+"s "+tr("ago"))+" · "+tr("trades")+": "+(tb.n||0)+" · "+tr("net")+": "+(((tb.net||0)>=0)?"+":"−")+"$"+Math.abs(tb.net||0).toFixed(2)),
+    e("div",{style:{display:"flex",gap:"8px",flexWrap:"wrap",alignItems:"center",marginTop:"2px"}},
+      e("button",{onClick:()=>props.onMaster&&props.onMaster(),"data-testid":"tbmaster",style:{background:on?`${T.red}18`:`${T.green}22`,border:`1.5px solid ${on?T.red:T.green}`,color:on?T.red:T.green,borderRadius:"9px",padding:"8px 12px",fontSize:"12px",fontFamily:"monospace",fontWeight:"800",cursor:"pointer"}},(on?"■ ":"▶ ")+(on?tr("master"):tr("masterOn"))),
+      e("label",{style:{display:"flex",alignItems:"center",gap:"6px",fontSize:"11.5px",color:T.gray1,fontFamily:"monospace",cursor:"pointer"}},
+        e("input",{type:"checkbox",checked:wake,onChange:ev=>{ const v=ev.target.checked; setWake(v); try{ localStorage.setItem("qe_tb_wake",v?"1":"0"); }catch(er){} }}),tr("wake"))),
+    e("div",{style:{fontSize:"10.8px",color:T.gray2,fontFamily:"monospace",marginTop:"8px",lineHeight:1.5}},tr("note")));
+}
 // ── Collapsible section used by the virtual-exchange window (vc585). Pure layout: children are rendered as before, only hidden when collapsed.
 function VxSec(props){
   const e=React.createElement; const T=props.T; const LG=props.LANG||"ru";
@@ -18636,7 +18679,7 @@ function App(){
   const _vxSecOn=()=> (vxExchRef.current||"US")==="US" && (vxSecRef.current||[]).length>0;
   const _vxSecSet=()=>{ if(!_vxSecOn()) return null; const m={}; vxSecRef.current.forEach(k=>(US_SECTORS[k]||[]).forEach(x=>m[x]=1)); return m; };
   const _vxScanSec=()=> (_vxSecOn()&&vxSecRef.current.length===1)?vxSecRef.current[0]:"all";
-  const _scUniNow=(base)=>{ if((vxExchRef.current||"US")==="CRYPTO"){ try{ window.QEBin.refresh(false); }catch(e){} const tp=window.QEBin&&window.QEBin.top(20); try{ window.QEBin.watch(tp&&tp.length>=8?tp:SC_CRYPTO); }catch(e){} return tp&&tp.length>=8?tp:SC_CRYPTO; }   /* vc579: live Binance top-20 by volume */ const m=_vxSecSet(); if(!m) return base; let l=base.filter(x=>m[x]); if(l.length<12){ Object.keys(m).forEach(x=>{ if(l.length<16&&l.indexOf(x)<0) l.push(x); }); } return l.length?l:base; };
+  const _scUniNow=(base,mkt)=>{ if(mkt==="CR"||(mkt===undefined&&(vxExchRef.current||"US")==="CRYPTO")){ try{ window.QEBin.refresh(false); }catch(e){} const tp=window.QEBin&&window.QEBin.top(20); try{ window.QEBin.watch(tp&&tp.length>=8?tp:SC_CRYPTO); }catch(e){} return tp&&tp.length>=8?tp:SC_CRYPTO; }   /* vc579: live Binance top-20 by volume */ const m=_vxSecSet(); if(!m) return base; let l=base.filter(x=>m[x]); if(l.length<12){ Object.keys(m).forEach(x=>{ if(l.length<16&&l.indexOf(x)<0) l.push(x); }); } return l.length?l:base; };
   const setVxSec=(arr)=>{ setVxSecS(arr); vxSecRef.current=arr; try{ localStorage.setItem("qe_vx_sectors",JSON.stringify(arr)); }catch(e){} try{ vxCandRef.current=null; window.QEVXLog.log("INFO","sectors",arr.join(",")||"all"); }catch(e){} };
   const _vxQuote=async(tk,opts)=>{ const sym=window.EWEngine.resolveSymbol(tk,"US"); const q=await window.EWEngine.fetchQuote(sym,opts); if(!q||!(q.price>0)) return q; const m=await window.QEFx.mult(sym); if(m==null) return null; if(m===1) return q; return {...q, price:+(q.price*m).toFixed(4), local:q.price, fx:m}; };
   useEffect(()=>{ try{ vxCandRef.current=null; window.QEVXLog.log("INFO","exchange",exch); }catch(e){} },[exch]);   // new market → drop cached candidates, rescan
@@ -19085,12 +19128,16 @@ function App(){
   /* ═════ vc562: TURBO-SCALP. Scalping is SEPARATE from the swing AI: its own scanner and ONE INDEPENDENT THREAD PER TRADE (an async worker with its own timer, tick buffer, quote polling, stop/flip logic and error back-off - a slow or failing quote of one ticker never delays another trade). No entry filters: the micro-trend direction of the last ~30 s decides; direction change -> exit and re-enter the other way within seconds. Kept: hard stop on every trade, own bucket (qe_vx_scalp_pct), market hours, a minimum hold of 6 s + 2 confirmations so a single noisy tick cannot churn fees. Switch off: qe_turbo="0". ═════ */
   const _tbAcct=()=>_acctNow()||_vxDefault();
   const _tbOn=()=>{ try{ return localStorage.getItem("qe_turbo")!=="0"; }catch(e){ return true; } };
+  /* vc586: scalping runs on BOTH markets at once, whatever exchange the picker shows: crypto 24/7 and US stocks while the US session is open. Each market has its own persisted switch; the master switch is qe_vx_scalp. Nothing here stops by itself. */
+  const _tbMktOn=(k)=>{ try{ return localStorage.getItem(k==="CR"?"qe_tb_cr":"qe_tb_st")!=="0"; }catch(e){ return true; } };
+  const [tbMk,setTbMkS]=useState(()=>({cr:_tbMktOn("CR"),st:_tbMktOn("ST")}));
+  const _setTbMk=(k,v)=>{ try{ localStorage.setItem(k==="CR"?"qe_tb_cr":"qe_tb_st",v?"1":"0"); }catch(e){} setTbMkS(pv=>({...pv,[k==="CR"?"cr":"st"]:v})); try{ window.QEVXLog.log("INFO","tb.market",{k:k,on:v}); }catch(e){} setTimeout(()=>{ try{ _tbScan(); }catch(e){} },50); };
   const _tbGap=(tk,C)=>_isCryptoTk(tk)?Math.min(C.thMs,(window.QEBin&&window.QEBin.streaming(tk))?1000:2000):C.thMs;   /* vc581: live stream → 1 s, else REST 2 s */
   const TB=()=>Object.assign({scanMs:4000,thMs:3000,warmPts:4,warmMs:12000,minHold:6000,rev:2,maxT:(()=>{ try{ const v=parseInt(localStorage.getItem("qe_turbo_max")); return (v>=1&&v<=10)?v:4; }catch(e){ return 4; } })()},window.__tbCfg||{});
   const [tbOnUi,setTbOnUi]=useState(()=>{ try{ return localStorage.getItem("qe_turbo")!=="0"; }catch(e){ return true; } });
   const [tbUi,setTbUi]=useState(null);
   const tbRef=useRef({buf:{},cool:{},watch:[],wTs:0,rr:0,thr:{},n:0,flips:0,net:0,ts:0,scanBusy:false,pubTs:0});
-  const _tbPub=(force)=>{ const R=tbRef.current, now=Date.now(); if(!force&&now-R.pubTs<1000) return; R.pubTs=now; try{ const thr=Object.keys(R.thr).filter(k=>R.thr[k].alive).map(k=>{ const h=R.thr[k]; return {tk:k,id:h.id,side:h.side,ms:h.lastMs,tick:h.ticks,fav:h.fav,errs:h.errs}; }); setTbUi({thr:thr,n:R.n,flips:R.flips,net:+R.net.toFixed(2),ts:now}); }catch(e){} };
+  const _tbPub=(force)=>{ const R=tbRef.current, now=Date.now(); if(!force&&now-R.pubTs<1000) return; R.pubTs=now; try{ const thr=Object.keys(R.thr).filter(k=>R.thr[k].alive).map(k=>{ const h=R.thr[k]; return {tk:k,id:h.id,side:h.side,ms:h.lastMs,tick:h.ticks,fav:h.fav,errs:h.errs}; }); setTbUi({thr:thr,n:R.n,flips:R.flips,net:+R.net.toFixed(2),ts:now,mst:R.mst||{},why:R.why||""}); }catch(e){} };
   const _tbMicro=(b,now,cr)=>{ if(!b||b.length<TB().warmPts||now-b[0].t<TB().warmMs) return null; const p=b[b.length-1].p;
     const ema=(tau)=>{ let e=b[0].p,t0=b[0].t; for(let i=1;i<b.length;i++){ const dt=Math.max(0.5,(b[i].t-t0)/1000); const a=1-Math.exp(-dt/tau); e+=a*(b[i].p-e); t0=b[i].t; } return e; };
     const ef=ema(6), es=ema(24); const dev=(ef-es)/es*100; const old=b.find(x=>x.t>=now-30000)||b[0]; const mv=(p-old.p)/old.p*100;
@@ -19108,7 +19155,7 @@ function App(){
     let r; try{ r=_vxApply(acct,sd>0?"sell":"buy",tk,q,px,_vxFeeFor(q,px,tk),"ai",{limitMin:0,reason:"scalp_"+why,openTs:openTs,scalp:true}); }catch(e){ r={ok:false}; } if(!r.ok) return null;
     _saveVX(r.acct); setVxPrices(prev=>({...prev,[tk]:px})); if(th){ delete mem.open[tk]; _saveAi(mem); } _tbRecord(r,tk,sd,why,(Date.now()-openTs)/1000*1); return {net:r.net,sd:sd}; };
   const _tbOpen=(tk,dir,px,m)=>{ const acct=_tbAcct(); if(!acct||!(px>0)) return false; if(acct.positions.some(p=>p.ticker===tk&&p.qty!==0)) return false; const mem=_loadAi(); const pm={...vxPricesRef.current}; pm[tk]=px;
-    const eq=_vxEquity(acct,pm).equity; const pct=_scPct(); if(!(pct>0)||!(eq>0)) return false; const bucket=pct/100*eq; let used=0,nS=0; acct.positions.forEach(p=>{ const th=mem.open&&mem.open[p.ticker]; if(th&&th.scalp&&p.qty!==0){ used+=Math.abs(p.qty)*p.avg; nS++; } });
+    const eq=_vxEquity(acct,pm).equity; const pct=_scPct(); if(!(pct>0)||!(eq>0)) return false; const bucket=pct/100*eq; let used=0,nS=0; acct.positions.forEach(p=>{ const th=mem.open&&mem.open[p.ticker]; if(th&&th.scalp&&p.qty!==0){ used+=Math.abs(p.qty)*p.avg; if(_isCryptoTk(p.ticker)===_isCryptoTk(tk)) nS++; } });
     const MAXT=TB().maxT; if(nS>=MAXT) return false; const free=bucket-used; if(!(free>100)) return false;
     const CR=_isCryptoTk(tk); const stopPct=CR?Math.min(0.8,Math.max(0.3,4*m.band)):Math.min(0.5,Math.max(0.12,4*m.band)); const capCash=dir>0?(acct.cash-0.05*eq):Infinity; const tpPct=CR?0.9:0.6;   /* crypto: wider stop/target to clear the 0.10 %/side fee */
     let notional=Math.min(free,bucket/MAXT,capCash,0.003*eq/(stopPct/100)); let qty=CR?Math.floor(notional/px*1e6)/1e6:Math.floor(notional/px); let lot=1; try{ lot=window.QEFx.lot(tk)||1; }catch(e){} if(lot>1) qty=Math.floor(qty/lot)*lot; if(CR?(qty*px<10):(qty<1)) return false;
@@ -19119,7 +19166,7 @@ function App(){
     try{ window.QEVXLog.log("INFO","scalp.entry "+tk,{side:dir>0?"long":"short",qty:qty,px:px,stop:mem.open[tk].stop,sp:+stopPct.toFixed(3),mv:+m.mv.toFixed(3),band:+m.band.toFixed(3),turbo:true,fee:+fee.toFixed(3)}); }catch(e){}
     setVxMsg("⚡ "+(dir>0?"▲ ":"▼ ")+tk+" "+qty+" @ $"+px.toFixed(CR&&px<10?4:2)); try{ const S=_scLoad(); _scPublish(S,r.acct,mem); }catch(e){} return true; };
   const _tbStep=async(h)=>{ const tk=h.tk, C=TB(); const acct0=_tbAcct(); const p0=acct0&&acct0.positions.find(x=>x.ticker===tk&&x.qty!==0); const mem0=_loadAi(); const t0=mem0.open&&mem0.open[tk]; if(!p0||!(t0&&t0.scalp)){ h.alive=false; return; }
-    if(!_isCryptoTk(tk)&&!window.QEHours.isOpen(vxExchRef.current||"US")){ h.gap=10000; return; }   /* vc578: crypto is always open - switching the picker to a closed exchange must not freeze its trades */
+    if(!_isCryptoTk(tk)&&!window.QEHours.isOpen(/[.]/.test(tk)?(vxExchRef.current||"US"):"US")){ h.gap=10000; return; }   /* vc578: crypto is always open - switching the picker to a closed exchange must not freeze its trades */
     const t1=Date.now(); const q=await _tbQuote(tk); h.lastMs=Date.now()-t1; if(!h.alive) return;
     if(!(q&&q.price>0)){ h.errs++; h.gap=Math.min(15000,C.thMs*(1+h.errs)); return; } h.errs=0; h.gap=_tbGap(h.tk,C); h.ticks++; const px=q.price;
     const buf=_tbPush(tk,px); const now=Date.now();
@@ -19134,29 +19181,46 @@ function App(){
     else { tbRef.current.cool[tk]=now+10000; }
     try{ const R2=tbRef.current; R2.recent=R2.recent||{}; R2.recent[tk]=now; }catch(e){}
     _tbPub(true); };
-  const _tbSpawn=(tk)=>{ const R=tbRef.current; const old=R.thr[tk]; if(old&&old.alive) return old; const h={tk:tk,id:"t"+Date.now().toString(36).slice(-4)+tk,alive:true,ticks:0,errs:0,rev:0,gap:_tbGap(tk,TB()),side:"",fav:0,lastMs:0,flipT:[]}; R.thr[tk]=h;
-    const loop=async()=>{ if(!h.alive){ _tbPub(true); return; } const t0=Date.now(); try{ await _tbStep(h); }catch(e){ h.errs++; h.gap=Math.min(15000,TB().thMs*(1+h.errs)); try{ window.QEVXLog.err("tb.thread "+tk,e); }catch(_){} }
-      if(h.alive){ h.timer=setTimeout(loop,Math.max(400,(h.gap||TB().thMs)-(Date.now()-t0))); } _tbPub(false); };
-    h.timer=setTimeout(loop,150); try{ window.QEVXLog.log("INFO","tb.thread.start "+tk,{id:h.id}); }catch(e){} _tbPub(true); return h; };
-  const _tbWatch=()=>{ const R=tbRef.current, now=Date.now(); const rc=Object.keys(R.recent||{}).filter(k=>now-R.recent[k]<180000).slice(0,3); const rcKey=rc.join(); if(R.watch.length&&now-R.wTs<30000&&R.rcKey===rcKey) return R.watch; R.wTs=now; R.rcKey=rcKey; const cache=window.__scBars||{}; const sc=[];
-    const UU=_scUniNow(SC_UNI); UU.forEach(tk=>{ const c=cache[tk]; if(c&&c.bars&&c.bars.length>12){ const b=c.bars,k=b.length-1,a=b[Math.max(0,k-6)].close,l=b[k].close; if(a>0&&l>0) sc.push([tk,Math.abs(l/a-1)]); } });
-    let w=rc.concat(sc.sort((x,y)=>y[1]-x[1]).map(x=>x[0]).filter(x=>rc.indexOf(x)<0)).slice(0,6); if(w.length<6){ for(let i=0;i<UU.length&&w.length<6;i++){ const t0=UU[(R.rr+i)%UU.length]; if(w.indexOf(t0)<0) w.push(t0); } R.rr=(R.rr+3)%UU.length; } R.watch=w; return w; };
+  const _tbSpawn=(tk)=>{ const R=tbRef.current; const old=R.thr[tk]; if(old&&old.alive) return old; const h={tk:tk,id:"t"+Date.now().toString(36).slice(-4)+tk,alive:true,ticks:0,errs:0,rev:0,gap:_tbGap(tk,TB()),side:"",fav:0,lastMs:0,flipT:[],born:Date.now(),lastRun:Date.now(),busy:false,busyT:0}; R.thr[tk]=h;
+    const loop=async()=>{ if(!h.alive){ _tbPub(true); return; } if(h.busy&&Date.now()-h.busyT<25000){ clearTimeout(h.timer); h.timer=setTimeout(loop,700); return; } h.busy=true; h.busyT=Date.now(); h.lastRun=h.busyT; const t0=Date.now(); try{ await _tbStep(h); }catch(e){ h.errs++; h.gap=Math.min(15000,TB().thMs*(1+h.errs)); try{ window.QEVXLog.err("tb.thread "+tk,e); }catch(_){} } finally{ h.busy=false; }
+      if(h.alive){ clearTimeout(h.timer); h.timer=setTimeout(loop,Math.max(400,(h.gap||TB().thMs)-(Date.now()-t0))); } _tbPub(false); };
+    h.loop=loop; h.timer=setTimeout(loop,150); try{ window.QEVXLog.log("INFO","tb.thread.start "+tk,{id:h.id}); }catch(e){} _tbPub(true); return h; };
+  const _tbWatch=(mkt)=>{ const R=tbRef.current, now=Date.now(); R.wm=R.wm||{}; const S=R.wm[mkt]||(R.wm[mkt]={watch:[],wTs:0,rcKey:"",rr:0,pr:0}); const CRm=mkt==="CR"; const rc=Object.keys(R.recent||{}).filter(k=>now-R.recent[k]<180000&&_isCryptoTk(k)===CRm).slice(0,3); const rcKey=rc.join(); if(S.watch.length&&now-S.wTs<30000&&S.rcKey===rcKey) return S.watch; S.wTs=now; S.rcKey=rcKey; const cache=window.__scBars||{}; const sc=[];
+    const UU=_scUniNow(SC_UNI,mkt); UU.forEach(tk=>{ const c=cache[tk]; if(c&&c.bars&&c.bars.length>12){ const b=c.bars,k=b.length-1,a=b[Math.max(0,k-6)].close,l=b[k].close; if(a>0&&l>0) sc.push([tk,Math.abs(l/a-1)]); } });
+    let w=rc.concat(sc.sort((x,y)=>y[1]-x[1]).map(x=>x[0]).filter(x=>rc.indexOf(x)<0)).slice(0,6); if(w.length<6){ for(let i=0;i<UU.length&&w.length<6;i++){ const t0=UU[(S.rr+i)%UU.length]; if(w.indexOf(t0)<0) w.push(t0); } S.rr=(S.rr+3)%Math.max(1,UU.length); } S.watch=w; R.watch=w; return w; };
   const _tbIdle=(why,x)=>{ const R=tbRef.current, n=Date.now(); R.why=why; if(!(n-(R.idleTs||0)>60000)) return; R.idleTs=n; try{ if(_tbOn()) window.QEVXLog.log("INFO","tb.idle",Object.assign({why:why},x||{})); }catch(e){} };
-  const _tbScan=async()=>{ const R=tbRef.current; if(R.scanBusy) return; const force=!!window.__tbForce;
-    try{ if(_tbOn()){ const a0=_tbAcct(), m0=_loadAi(); if(a0) a0.positions.forEach(p=>{ const th=m0.open&&m0.open[p.ticker]; if(th&&th.scalp&&p.qty!==0&&(_isCryptoTk(p.ticker)||window.QEHours.isOpen(vxExchRef.current||"US"))) _tbSpawn(p.ticker); }); } }catch(e){}   /* vc578: every open scalp keeps its own thread whatever exchange is selected */ if(!force&&!(vxAutoRef.current&&scalpOnRef.current&&_tbOn())){ if(_tbOn()) _tbIdle(!vxAutoRef.current?"auto_off":!scalpOnRef.current?"scalp_off":"off"); return; } if(!force&&(vxExchRef.current||"US")!=="US"&&(vxExchRef.current||"US")!=="CRYPTO"){ _tbIdle("exchange_not_US",{exch:vxExchRef.current}); return; } if(!force&&(vxExchRef.current||"US")==="US"&&!window.QEHours.isOpen("US")){ _tbIdle("us_closed"); return; } if(!(_scPct()>0)){ _tbIdle("scalp_budget_0"); return; }
-    R.scanBusy=true; try{ const C=TB(); const now=Date.now(); const acct=_tbAcct(); if(!acct) return; const mem=_loadAi();
-      // adopt every open scalp (also older, non-turbo ones) so each trade has its own thread
-      acct.positions.forEach(p=>{ const th=mem.open&&mem.open[p.ticker]; if(th&&th.scalp&&p.qty!==0) _tbSpawn(p.ticker); });
-      const held={}; acct.positions.forEach(p=>{ if(p.qty!==0) held[p.ticker]=1; });
-      let nS=0; acct.positions.forEach(p=>{ const th=mem.open&&mem.open[p.ticker]; if(th&&th.scalp&&p.qty!==0) nS++; });
-      const w=_tbWatch().filter(tk=>!held[tk]); const pick=[]; for(let i=0;i<Math.min(3,w.length);i++) pick.push(w[(R.rr+i)%w.length]); R.rr=(R.rr+3)%Math.max(1,w.length);
-      const qs=await Promise.all(pick.map(tk=>_tbQuote(tk).then(q=>[tk,q]).catch(()=>[tk,null]))); let best=null;
-      { const okN=qs.filter(x=>x[1]&&x[1].price>0).length; if(!okN) _tbIdle("no_quotes",{watch:w.length,pick:pick.join(",")}); }
-      qs.forEach(([tk,q])=>{ if(!(q&&q.price>0)) return; const b=_tbPush(tk,q.price); const m=_tbMicro(b,Date.now(),_isCryptoTk(tk)); if(m&&m.dir!==0&&!(R.cool[tk]>Date.now())&&!held[tk]){ if(!best||m.score>best.m.score) best={tk:tk,m:m,px:q.price}; } });
-      if(best&&nS<C.maxT){ const a2=_tbAcct(); if(a2&&!a2.positions.some(p=>p.ticker===best.tk&&p.qty!==0)){ if(_tbOpen(best.tk,best.m.dir,best.px,best.m)){ const h=_tbSpawn(best.tk); h.side=best.m.dir>0?"long":"short"; } } }
-      R.ts=Date.now(); _tbPub(false);
+  const _tbScanMkt=async(M,C,mst)=>{ const R=tbRef.current; const acct=_tbAcct(); if(!acct) return; const mem=_loadAi(); const CRm=M==="CR"; R.wm=R.wm||{};
+    const held={}; acct.positions.forEach(p=>{ if(p.qty!==0) held[p.ticker]=1; });
+    let nS=0; acct.positions.forEach(p=>{ const th=mem.open&&mem.open[p.ticker]; if(th&&th.scalp&&p.qty!==0&&_isCryptoTk(p.ticker)===CRm) nS++; });
+    const w=_tbWatch(M).filter(tk=>!held[tk]); const S=R.wm[M]; S.pr=S.pr||0; const pick=[]; for(let i=0;i<Math.min(3,w.length);i++) pick.push(w[(S.pr+i)%w.length]); S.pr=(S.pr+3)%Math.max(1,w.length);
+    const qs=await Promise.all(pick.map(tk=>_tbQuote(tk).then(q=>[tk,q]).catch(()=>[tk,null]))); let best=null;
+    const okN=qs.filter(x=>x[1]&&x[1].price>0).length; if(!okN) _tbIdle("no_quotes",{mkt:M,watch:w.length,pick:pick.join(",")});
+    qs.forEach(([tk,q])=>{ if(!(q&&q.price>0)) return; const b=_tbPush(tk,q.price); const m=_tbMicro(b,Date.now(),_isCryptoTk(tk)); if(m&&m.dir!==0&&!(R.cool[tk]>Date.now())&&!held[tk]){ if(!best||m.score>best.m.score) best={tk:tk,m:m,px:q.price}; } });
+    if(best&&nS<C.maxT){ const a2=_tbAcct(); if(a2&&!a2.positions.some(p=>p.ticker===best.tk&&p.qty!==0)){ if(_tbOpen(best.tk,best.m.dir,best.px,best.m)){ const h=_tbSpawn(best.tk); h.side=best.m.dir>0?"long":"short"; nS++; } } }
+    mst[M]={st:okN?"run":"noq",w:w.length,nS:nS,max:C.maxT,ok:okN,ts:Date.now()}; };
+  const _tbScan=async()=>{ const R=tbRef.current; R.hb=Date.now(); if(R.scanBusy&&R.hb-(R.busyTs||0)>30000){ R.scanBusy=false; try{ window.QEVXLog.log("WARN","tb.unstick",{}); }catch(e){} } if(R.scanBusy) return; const force=!!window.__tbForce;
+    try{ if(_tbOn()){ const a0=_tbAcct(), m0=_loadAi(); if(a0) a0.positions.forEach(p=>{ const th=m0.open&&m0.open[p.ticker]; if(th&&th.scalp&&p.qty!==0&&(_isCryptoTk(p.ticker)||window.QEHours.isOpen(/[.]/.test(p.ticker)?(vxExchRef.current||"US"):"US"))) _tbSpawn(p.ticker); }); } }catch(e){}   /* every open scalp keeps its own thread whatever exchange is selected */
+    const pubSig=(m)=>{ const sg=JSON.stringify(m); if(R.sig!==sg){ R.sig=sg; _tbPub(true); } };
+    if(!force&&!(scalpOnRef.current&&_tbOn())){ R.mst={}; if(_tbOn()) _tbIdle(!scalpOnRef.current?"scalp_off":"off"); return; }
+    if(!force&&!(_scPct()>0)){ R.mst={}; _tbIdle("scalp_budget_0"); return; }
+    const mst={}; const mk=[]; if(_tbMktOn("CR")) mk.push("CR"); else mst.CR={st:"off"}; if(_tbMktOn("ST")){ if(force||window.QEHours.isOpen("US")) mk.push("ST"); else mst.ST={st:"closed"}; } else mst.ST={st:"off"};
+    if(!mk.length){ R.mst=mst; _tbIdle(mst.ST&&mst.ST.st==="closed"?"us_closed":"no_market"); R.ts=Date.now(); pubSig(mst); return; }
+    R.scanBusy=true; R.busyTs=Date.now();
+    try{ const C=TB(); for(let i=0;i<mk.length;i++){ try{ await _tbScanMkt(mk[i],C,mst); }catch(e){ try{ window.QEVXLog.err("tb.scan."+mk[i],e); }catch(_){} } } R.mst=mst; R.ts=Date.now(); _tbPub(false);
     }catch(e){ try{ window.QEVXLog.err("tb.scan",e); }catch(_){} } finally{ R.scanBusy=false; } };
-  useEffect(()=>{ if(!authUser) return; const id=setInterval(()=>{ try{ _tbScan(); }catch(e){} },TB().scanMs); window.__tbDebug={scan:_tbScan,micro:(tk)=>{ const b=tbRef.current.buf[tk]; return {m:_tbMicro(b,Date.now(),_isCryptoTk(tk)),n:b&&b.length,span:b&&b.length?Date.now()-b[0].t:0,cool:tbRef.current.cool[tk]||0,watch:tbRef.current.watch}; },state:()=>({thr:Object.keys(tbRef.current.thr).map(k=>({tk:k,alive:tbRef.current.thr[k].alive,side:tbRef.current.thr[k].side})),n:tbRef.current.n,flips:tbRef.current.flips,net:tbRef.current.net,buf:Object.keys(tbRef.current.buf).length})}; return ()=>{ clearInterval(id); const R=tbRef.current; Object.keys(R.thr).forEach(k=>{ const h=R.thr[k]; h.alive=false; try{ clearTimeout(h.timer); }catch(e){} }); R.thr={}; }; },[authUser&&authUser.phone]);
+  useEffect(()=>{ if(!authUser) return; const wl={s:null};
+    const wantWl=()=>{ try{ return !!(scalpOnRef.current&&_tbOn()&&localStorage.getItem("qe_tb_wake")!=="0"&&(_tbMktOn("CR")||_tbMktOn("ST"))); }catch(e){ return false; } };
+    const getWl=async()=>{ try{ if(!wantWl()){ if(wl.s){ try{ wl.s.release(); }catch(e){} wl.s=null; } return; } if(document.visibilityState!=="visible"||!navigator.wakeLock||wl.s) return; wl.s=await navigator.wakeLock.request("screen"); try{ wl.s.addEventListener("release",()=>{ wl.s=null; }); }catch(e){} try{ window.QEVXLog.log("INFO","tb.wakelock",{on:1}); }catch(e){} }catch(e){ wl.s=null; } };
+    const kick=()=>{ try{ _tbScan(); const R=tbRef.current; Object.keys(R.thr).forEach(k=>{ const h=R.thr[k]; if(h.alive&&h.loop){ clearTimeout(h.timer); h.timer=setTimeout(h.loop,30); } }); getWl(); }catch(e){} };
+    const onVis=()=>{ if(document.visibilityState==="visible") kick(); };
+    const id=setInterval(()=>{ try{ _tbScan(); }catch(e){} },TB().scanMs);
+    const wd=setInterval(()=>{ try{ const R=tbRef.current, now=Date.now(); if(!(scalpOnRef.current&&_tbOn())) return;
+        if(now-(R.hb||now)>30000){ R.scanBusy=false; try{ window.QEVXLog.log("WARN","tb.watchdog",{hbAgeS:Math.round((now-R.hb)/1000)}); }catch(e){} _tbScan(); }
+        Object.keys(R.thr).forEach(k=>{ const h=R.thr[k]; if(h.alive&&h.loop&&now-(h.lastRun||now)>60000){ try{ window.QEVXLog.log("WARN","tb.thread.kick "+k,{idleS:Math.round((now-h.lastRun)/1000)}); }catch(e){} h.busy=false; clearTimeout(h.timer); h.timer=setTimeout(h.loop,30); } }); }catch(e){} },10000);
+    const wlId=setInterval(getWl,30000);
+    document.addEventListener("visibilitychange",onVis); window.addEventListener("online",kick); window.addEventListener("focus",kick); window.addEventListener("pageshow",kick); getWl();
+    window.__tbDebug={scan:_tbScan,micro:(tk)=>{ const b=tbRef.current.buf[tk]; return {m:_tbMicro(b,Date.now(),_isCryptoTk(tk)),n:b&&b.length,span:b&&b.length?Date.now()-b[0].t:0,cool:tbRef.current.cool[tk]||0,watch:tbRef.current.watch}; },state:()=>({thr:Object.keys(tbRef.current.thr).map(k=>({tk:k,alive:tbRef.current.thr[k].alive,side:tbRef.current.thr[k].side})),n:tbRef.current.n,flips:tbRef.current.flips,net:tbRef.current.net,buf:Object.keys(tbRef.current.buf).length,mst:tbRef.current.mst})};
+    return ()=>{ clearInterval(id); clearInterval(wd); clearInterval(wlId); document.removeEventListener("visibilitychange",onVis); window.removeEventListener("online",kick); window.removeEventListener("focus",kick); window.removeEventListener("pageshow",kick); try{ wl.s&&wl.s.release(); }catch(e){} const R=tbRef.current; Object.keys(R.thr).forEach(k=>{ const h=R.thr[k]; h.alive=false; try{ clearTimeout(h.timer); }catch(e){} }); R.thr={}; }; },[authUser&&authUser.phone]);
   const scalpOnRef=useRef(true); scalpOnRef.current=scalpOn;
   useEffect(()=>{ if(!showVX) return; try{ const S=_scLoad(); const mem=_loadAi(); const a=_acctNow()||vxAcct; _scPublish(S,a||{positions:[]},mem); }catch(e){} },[showVX]);
   const _vxAutoPlayOnce=async()=>{
@@ -21286,6 +21350,9 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
                 vxAuto&&e("div",{style:{fontSize:"12px",color:T.green,fontFamily:"monospace",marginTop:"6px",textAlign:"center"}},"● "+t("vx_live")+(vxLast?" · "+t("vx_last")+" "+new Date(vxLast).toLocaleTimeString():"")),
                 vxMsg&&e("div",{style:{fontSize:"12px",color:T.gray1,fontFamily:"monospace",marginTop:"8px",textAlign:"center",lineHeight:1.4}},vxMsg)
               ),
+              e(VxScalpMon,{T:T,LANG:LANG,tb:tbUi,mk:tbMk,scalpOn:scalpOn,hb:()=>tbRef.current.hb,
+                onMaster:()=>{ const v=!scalpOn; setScalpOnS(v); try{ localStorage.setItem("qe_vx_scalp",v?"1":"0"); }catch(x){} try{ window.QEVXLog.log("INFO","tb.master",{on:v}); }catch(x){} setTimeout(()=>{ try{ _tbScan(); }catch(x){} },50); },
+                onMk:_setTbMk}),
               e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}},
                 (window.__vxWant=_vxWantTk(),null),
                 e("div",{style:{fontSize:"12.8px",color:T.gray1,fontFamily:"monospace",fontWeight:"700",letterSpacing:"0.5px"}},t("vx_positions")),
@@ -21464,7 +21531,7 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
                   e(VxTip,{T:T,txt:t("scalp_explore_note")}),
                   e("div",{style:{marginTop:"10px",padding:"8px",border:`1.5px solid ${tbOnUi?T.gold:T.border}`,borderRadius:"9px"}},
                     e("button",{onClick:()=>{ const nv=!tbOnUi; setTbOnUi(nv); try{ localStorage.setItem("qe_turbo",nv?"1":"0"); }catch(x){} try{ window.QEVXLog.log("INFO","tb.toggle",{on:nv}); }catch(x){} },style:{width:"100%",background:tbOnUi?T.gold+"22":T.bg2,border:`1.5px solid ${tbOnUi?T.gold:T.gray2}`,color:tbOnUi?T.gold:T.gray2,padding:"7px",borderRadius:"8px",fontSize:"12.8px",fontFamily:"monospace",fontWeight:"800",cursor:"pointer"}},(tbOnUi?"✓ ":"○ ")+t("tb_title")),
-                    (exch!=="US"&&exch!=="CRYPTO")&&e("div",{style:{fontSize:"12px",color:T.amber,fontFamily:"monospace",marginTop:"6px",fontWeight:"800"}},"⚠ "+t("tb_us_only")),
+                    false&&e("div",{style:{fontSize:"12px",color:T.amber,fontFamily:"monospace",marginTop:"6px",fontWeight:"800"}},"⚠ "+t("tb_us_only")),
                     (exch==="CRYPTO")&&e(VxTip,{T:T,txt:t("tb_crypto_note")}),
                     e("div",{style:{fontSize:"12px",color:T.gray1,fontFamily:"monospace",marginTop:"6px"}},t("tb_threads")+": "+(tbUi?tbUi.thr.length:0)+" · "+t("tb_trades")+": "+(tbUi?tbUi.n:0)+" · "+t("tb_flips")+": "+(tbUi?tbUi.flips:0)+" · "+(tbUi?_vxUSD(tbUi.net,true):"$0")),
                     (tbUi&&tbUi.thr.length)?tbUi.thr.map(h=>e("div",{key:h.id,style:{fontSize:"12px",fontFamily:"monospace",color:h.fav>=0?T.green:T.red,lineHeight:1.55}},"🧵 "+h.tk+" "+(h.side==="short"?"▼ short":"▲ long")+"  "+(h.fav>=0?"+":"")+h.fav+"%  · tick "+h.tick+" · "+h.ms+"ms"+(h.errs?" · err "+h.errs:""))):e("div",{style:{fontSize:"12px",color:T.gray2,fontFamily:"monospace"}},t("tb_none")),
