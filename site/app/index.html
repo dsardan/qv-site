@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.154</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.155</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.154";
+const QE_VERSION = "15.12.155";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -16940,7 +16940,7 @@ function StockCard({pick,idx,show,inWatch,onWatch,onApplyFilter,onAssess}){
           const qScaledNote = quantum.targetScaled ? " · "+t("fr_quantum_closer") : "";
           // vc601: judged against the random-walk baseline (a far target is rarely touched: 5–25 % is normal), not against 45/60 % direction thresholds
           const qSt = quantum.status||(quantum.targetScaled?(quantum.probability>=60?"ok":"warn"):(quantum.probability>=60?"ok":quantum.probability>=45?"warn":"bad"));
-          const qBase = (quantum.base!=null)?(" · "+(LANG==="he"?"אקראי ":LANG==="en"?"random ":"случайно ")+quantum.base+"%"):"";
+          const qBase = (quantum.base!=null)?(" · "+(LANG==="he"?"מסלול ":LANG==="en"?"path ":"путь ")+quantum.components.pathIntegral+"% / "+(LANG==="he"?"אקראי ":LANG==="en"?"random ":"случайно ")+quantum.base+"%"):"";
           add(t("fr_quantum"), qSt, quantum.probability+"% ≤"+quantum.horizonDays+(LANG==="he"?" ימ'":LANG==="en"?"d":"д")+qBase+qScaledNote);
         }
         if(total){ const agRaw=Math.round(total.agreement*100);
@@ -17082,7 +17082,7 @@ function StockCard({pick,idx,show,inWatch,onWatch,onApplyFilter,onAssess}){
             e("div",{style:{fontSize:"13.2px",color:T.cyan,fontFamily:"monospace",fontWeight:"900",letterSpacing:"0.5px"}},t("qf_title")),
             e("div",{style:{fontSize:"17.6px",color:qc,fontFamily:"monospace",fontWeight:"900"}},(qup?"▲ ":"▼ ")+q.probability+"%")),
           e("div",{style:{fontSize:"8.8px",color:T.gray2,fontFamily:"monospace",marginBottom:"4px"}},t("qf_sub")),
-          q.base!=null&&e("div",{"data-testid":"qf-base",style:{fontSize:"9.6px",color:qc,fontFamily:"monospace",fontWeight:"700",marginBottom:"8px",lineHeight:1.45}},t("qf_vs")+": "+q.probability+"% · "+t("qf_rw")+" "+q.base+"% ("+(q.edge>0?"+":"")+q.edge+" "+t("qf_pp")+") · "+t("qf_end")+" "+q.dirProb+"%"),
+          q.base!=null&&e("div",{"data-testid":"qf-base",style:{fontSize:"9.6px",color:qc,fontFamily:"monospace",fontWeight:"700",marginBottom:"8px",lineHeight:1.45}},t("qf_vs")+": "+comp.pathIntegral+"% · "+t("qf_rw")+" "+q.base+"% ("+(q.edge>0?"+":"")+q.edge+" "+t("qf_pp")+") · "+t("qf_end")+" "+q.dirProb+"%"),
           e("div",{style:{fontSize:"9.9px",color:T.white,fontFamily:"monospace",fontWeight:"700",marginBottom:"9px"}},
             t("qf_target")+": "+(pick.currency||"$")+q.target+" ("+(q.movePct>0?"+":"")+q.movePct+"%) · ≤"+q.horizonDays+" "+t("fc_days")+(q.targetScaled?(" · "+t("qf_scaled")):"")),
           bar(t("qf_path"),comp.pathIntegral,T.cyan,comp.paths+" "+t("qf_paths")),
