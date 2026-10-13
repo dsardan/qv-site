@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.158</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.159</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.158";
+const QE_VERSION = "15.12.159";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -15336,6 +15336,88 @@ function VxCtPanel(props){
         e("span",{style:{textAlign:"end"}},(r.s!=null?("$"+r.cur+" → $"+r.tgt+" · "):"")+tr("d_"+r.dec)))),
       e("div",{style:{fontSize:"10.8px",color:T.gray2,fontFamily:"monospace",marginTop:"8px",lineHeight:1.5}},tr("test"))));
 }
+function QfHelp(props){
+  const e=React.createElement; const q=props.q; const LG=LANG||"ru"; const cur=props.cur||"$";
+  const [open,setOpen]=useState(false);
+  if(!q||!q.components) return null;
+  const c=q.components, path=c.pathIntegral, sup=c.superposition, tun=c.tunneling, base=q.base, edge=q.edge, prob=q.probability, dp=q.dirProb;
+  const pBar=Math.round(path*(0.90+0.10*tun/100)), pBl=Math.round(0.88*pBar+0.12*sup);
+  const up=q.direction==="up", st=q.status||"warn", col=st==="ok"?T.green:st==="warn"?T.gold:T.red;
+  const X={
+    ttl:{ru:"Как читать «Квантовый прогноз»",he:"איך לקרוא את «התחזית הקוונטית»",en:"How to read the “Quantum forecast”"},
+    row:{ru:"Строка в отчёте",he:"השורה בדוח",en:"The report line"},
+    one:{ru:"Одной фразой: это шанс, что цена хотя бы раз коснётся цели в пределах 10 дней — и сравнение этого шанса с тем, что дала бы «монетка» (случайное блуждание с той же волатильностью). Это НЕ шанс заработать и НЕ сигнал на сделку.",
+         he:"במשפט אחד: זה הסיכוי שהמחיר ייגע ביעד לפחות פעם אחת בתוך 10 ימים — והשוואה למה שהיה נותן «מטבע» (הילוך אקראי עם אותה תנודתיות). זה לא סיכוי להרוויח ולא איתות לעסקה.",
+         en:"In one sentence: the chance that price touches the target at least once within 10 days, compared with what a coin-flip market (random walk, same volatility) would give. It is NOT the chance of profit and NOT a trade signal."},
+    h1:{ru:"Ваши числа",he:"המספרים שלך",en:"Your numbers"},
+    n_prob:{ru:"≤10д — итоговая вероятность касания цели",he:"≤10 ימים — ההסתברות הסופית לגעת ביעד",en:"≤10d — final probability of touching the target"},
+    n_prob_d:{ru:"Берётся «путь», слегка снижается близким уровнем-барьером, к нему добавляется малая доля сигналов индикаторов (12 %) и всё слегка сжимается к осторожному значению. Сюда входят все три поправки ниже.",
+              he:"לוקחים את «המסלול», מקטינים מעט בגלל רמת מחסום קרובה, מוסיפים נתח קטן מאיתות האינדיקטורים (12%) ומכווצים מעט לערך זהיר. כאן נכללות שלוש התיקונים שלמטה.",
+              en:"Start from “path”, trim slightly for a nearby barrier level, add a small share of indicator signals (12%), then shrink a little toward a cautious value. All three adjustments below are included."},
+    n_path:{ru:"путь — доля смоделированных путей, коснувшихся цели",he:"מסלול — חלק המסלולים המדומים שנגעו ביעד",en:"path — share of simulated paths that touched the target"},
+    n_path_d:{ru:"Программа 4000 раз «проигрывает» следующие 10 дней, каждый день случайно беря дневную доходность из недавней истории ЭТОЙ бумаги. Считает, в скольких прогонах цена хоть раз дошла до цели. Важно: в истории есть и недавний тренд бумаги — он поднимает или опускает это число.",
+              he:"התוכנית «משחקת» 4000 פעמים את 10 הימים הבאים, וכל יום בוחרת באקראי תשואה יומית מההיסטוריה האחרונה של הנייר הזה. סופרת בכמה הרצות המחיר נגע ביעד. חשוב: בהיסטוריה יש גם מגמה אחרונה — היא מעלה או מורידה את המספר.",
+              en:"The app “replays” the next 10 days 4000 times, each day drawing a daily return at random from THIS stock’s recent history, and counts how many runs touched the target at least once. Note: the history includes the stock’s recent trend, which lifts or lowers this number."},
+    n_rw:{ru:"случайно — то же самое, но без тренда",he:"אקראי — אותו דבר, אך בלי מגמה",en:"random — the same, but with the trend removed"},
+    n_rw_d:{ru:"Те же дни и волатильность, но из доходностей вычтен средний тренд. Это «ничего не знаю о направлении»: сколько раз цена коснулась бы цели просто из-за размаха колебаний.",
+            he:"אותם ימים ותנודתיות, אך מהתשואות הופחתה המגמה הממוצעת. זה «אינני יודע כלום על הכיוון»: כמה פעמים המחיר היה נוגע ביעד רק בגלל עוצמת התנודות.",
+            en:"Same days and volatility, but the average trend is subtracted from the returns. This is “I know nothing about direction”: how often price would touch the target just from the size of its swings."},
+    n_edge:{ru:"разница путь − случайно",he:"הפרש מסלול − אקראי",en:"gap: path − random"},
+    n_edge_d:{ru:"Показывает, насколько недавний тренд бумаги помогает дойти до цели по сравнению с «монеткой». Не доказывает, что тренд продолжится.",
+              he:"מראה עד כמה המגמה האחרונה של הנייר עוזרת להגיע ליעד לעומת «מטבע». לא מוכיח שהמגמה תימשך.",
+              en:"Shows how much the stock’s recent trend helps reach the target compared with a coin. It does not prove the trend will continue."},
+    n_end:{ru:"закрытие на стороне прогноза",he:"סגירה בצד התחזית",en:"close on the forecast side"},
+    n_end_d:{ru:"Доля путей, которые к 10-му дню просто оказались выше (или ниже) цены сегодня — обычная шкала «направления», где 50 % = монетка.",
+             he:"חלק המסלולים שביום ה-10 פשוט נמצאים מעל (או מתחת) למחיר היום — סקאלת «כיוון» רגילה, 50% = מטבע.",
+             en:"Share of paths that simply end day 10 above (or below) today’s price — the ordinary “direction” scale where 50% = coin."},
+    h2:{ru:"Откуда взялось итоговое число",he:"מאיפה בא המספר הסופי",en:"How the final number is built"},
+    chain:{ru:"путь {a}% → поправка на барьер {b}% → + сигналы индикаторов (сонастройка {s}%) {c}% → осторожное сжатие → {p}%",
+           he:"מסלול {a}% → תיקון מחסום {b}% → + איתות אינדיקטורים (התאמה {s}%) {c}% → כיווץ זהיר → {p}%",
+           en:"path {a}% → barrier correction {b}% → + indicator signals (agreement {s}%) {c}% → cautious shrink → {p}%"},
+    h3:{ru:"Что значит цвет и галочка",he:"מה פירוש הצבע והסימן",en:"What the colour and tick mean"},
+    st_ok:{ru:"✓ зелёный: путь не меньше чем в 1.15 раза выше «случайно» и минимум на 2 п.п. — тренд бумаги реально помогает дойти до цели.",he:"✓ ירוק: המסלול גבוה פי 1.15 לפחות מ«אקראי» ובלפחות 2 נק׳ — המגמה אכן עוזרת להגיע ליעד.",en:"✓ green: path is at least 1.15× “random” and at least 2 pp higher — the stock’s trend genuinely helps reach the target."},
+    st_w:{ru:"⚠ жёлтый: примерно как «случайно» (в пределах −15 %) — преимущества нет, но и не хуже монетки.",he:"⚠ צהוב: בערך כמו «אקראי» (עד −15%) — אין יתרון, אך גם לא גרוע ממטבע.",en:"⚠ yellow: about the same as “random” (within −15%) — no advantage, but no worse than a coin."},
+    st_b:{ru:"✗ красный: заметно ниже «случайно» — недавняя динамика бумаги против этой цели.",he:"✗ אדום: נמוך משמעותית מ«אקראי» — הדינמיקה האחרונה נגד היעד.",en:"✗ red: clearly below “random” — the recent behaviour is against this target."},
+    now:{ru:"У вас сейчас",he:"אצלך עכשיו",en:"Right now"},
+    h4:{ru:"Как этим пользоваться — и чего не ждать",he:"איך להשתמש — ומה לא לצפות",en:"How to use it — and what not to expect"},
+    u1:{ru:"Малые числа — норма: дальняя цель за 10 дней достигается редко (5–25 % типично). Поэтому смотрите на разницу с «случайно», а не на 50 %.",he:"מספרים קטנים הם נורמה: יעד רחוק ב-10 ימים מושג לעיתים רחוקות (5–25% אופייני). לכן הסתכלו על ההפרש מול «אקראי», לא על 50%.",en:"Small numbers are normal: a far target within 10 days is rarely touched (5–25% is typical). So look at the gap to “random”, not at 50%."},
+    u2:{ru:"Это вероятность КАСАНИЯ (хоть раз за 10 дней), а не закрытия в плюсе. Цена может коснуться цели и вернуться.",he:"זו הסתברות לגעת (לפחות פעם ב-10 ימים), לא לסגור ברווח. המחיר יכול לגעת ביעד ולחזור.",en:"This is the probability of TOUCHING (at least once in 10 days), not of closing in profit. Price can touch the target and come back."},
+    u3:{ru:"Цель здесь может быть ближе, чем в основном прогнозе: за 10 дней физически достижим лишь ход около 2σ·√T, поэтому дальняя цель сжимается.",he:"היעד כאן עשוי להיות קרוב יותר מהתחזית הראשית: תוך 10 ימים אפשרי רק מהלך של כ-2σ·√T, ולכן יעד רחוק מכווץ.",en:"The target here may be closer than in the main forecast: only a move of about 2σ·√T is physically reachable in 10 days, so a far target is pulled in."},
+    u4:{ru:"Честно: на синтетических рынках с известной истиной вероятность касания для случайного блуждания считается верно, а умение предсказывать тренд эта строка не доказала. «Путь» опирается на прошлую динамику — если режим сменится, число устареет. Решает не эта строка, а общий вердикт и риск-правила.",he:"בכנות: בשווקים סינתטיים עם אמת ידועה ההסתברות לגעת בהילוך אקראי מחושבת נכון, אך היכולת לחזות מגמה לא הוכחה. «מסלול» נשען על דינמיקה עבר — אם המשטר ישתנה, המספר יתיישן. ההחלטה אינה לפי שורה זו אלא לפי הפסק הכללי וכללי הסיכון.",en:"Honestly: on synthetic markets with known truth the touch probability is computed correctly for a random walk, but this line has not shown any ability to predict trends. “Path” relies on past behaviour — if the regime changes the number goes stale. The decision rests on the overall verdict and risk rules, not on this line."},
+    tgt:{ru:"Цель",he:"יעד",en:"Target"}, dd:{ru:"дн.",he:"ימים",en:"d"}, close:{ru:"Закрыть",he:"סגור",en:"Close"}, scaled:{ru:"(сжата до достижимой за 10 дней)",he:"(כווץ למה שניתן להשיג ב-10 ימים)",en:"(pulled in to what is reachable in 10 days)"}
+  };
+  const tx=(k)=>String((X[k]&&(X[k][LG]||X[k].en))||k).replace("4000",String(c.paths||4000));
+  const H=(k)=>e("div",{style:{fontSize:"12px",color:T.cyan,fontFamily:"monospace",fontWeight:"900",margin:"16px 0 6px",letterSpacing:"0.4px"}},tx(k));
+  const P=(txt,st2)=>e("div",{style:Object.assign({fontSize:"11px",color:T.gray1,fontFamily:"monospace",lineHeight:1.55,marginBottom:"6px"},st2||{})},txt);
+  const NUM=(val,vcol,k)=>e("div",{style:{background:T.bg2,border:"1px solid "+T.border,borderRadius:"10px",padding:"9px 11px",marginBottom:"8px"}},
+    e("div",{style:{display:"flex",gap:"10px",alignItems:"baseline"}},
+      e("span",{style:{fontSize:"18px",color:vcol,fontFamily:"monospace",fontWeight:"900",minWidth:"62px"}},val),
+      e("span",{style:{fontSize:"11px",color:T.white,fontFamily:"monospace",fontWeight:"800"}},tx(k))),
+    e("div",{style:{fontSize:"10.4px",color:T.gray1,fontFamily:"monospace",lineHeight:1.5,marginTop:"4px"}},tx(k+"_d")));
+  const rtl=LG==="he";
+  return e(React.Fragment,null,
+    e("button",{"data-testid":"qf-help-open",onClick:function(ev){ try{ev.stopPropagation();}catch(_){} setOpen(true); },"aria-label":tx("ttl"),
+      style:{marginLeft:"6px",background:"transparent",border:"1px solid "+T.cyan,color:T.cyan,borderRadius:"50%",width:"17px",height:"17px",fontSize:"10px",fontWeight:"900",fontFamily:"monospace",lineHeight:"14px",padding:0,cursor:"pointer"}},"i"),
+    open&&e("div",{"data-testid":"qf-help",dir:rtl?"rtl":"ltr",style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:2147483000,background:T.bg1,overflowY:"auto",WebkitOverflowScrolling:"touch"}},
+      e("div",{style:{maxWidth:"640px",margin:"0 auto",padding:"14px 16px 40px"}},
+        e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:T.bg1,padding:"6px 0 10px",zIndex:1}},
+          e("div",{style:{fontSize:"14px",color:T.cyan,fontFamily:"monospace",fontWeight:"900"}},"⚛ "+tx("ttl")),
+          e("button",{"data-testid":"qf-help-close",onClick:function(){ setOpen(false); },style:{background:T.bg2,border:"1px solid "+T.border,color:T.white,borderRadius:"8px",padding:"6px 12px",fontFamily:"monospace",fontSize:"11px",fontWeight:"800",cursor:"pointer"}},"✕ "+tx("close"))),
+        e("div",{style:{background:col+"14",border:"1.5px solid "+col,borderRadius:"10px",padding:"10px 12px",marginBottom:"10px"}},
+          e("div",{style:{fontSize:"9px",color:T.gray2,fontFamily:"monospace",marginBottom:"3px"}},tx("row")),
+          e("div",{style:{fontSize:"12.5px",color:col,fontFamily:"monospace",fontWeight:"900",lineHeight:1.5,direction:"ltr",textAlign:rtl?"right":"left"}},
+            (st==="ok"?"✓ ":st==="warn"?"⚠ ":"✗ ")+prob+"% ≤"+q.horizonDays+"d · "+(LG==="en"?"path ":LG==="he"?"מסלול ":"путь ")+path+"% / "+(LG==="en"?"random ":LG==="he"?"אקראי ":"случайно ")+base+"%")),
+        P(tx("one"),{color:T.white,fontSize:"11.6px"}),
+        P(tx("tgt")+": "+cur+q.target+" ("+(q.movePct>0?"+":"")+q.movePct+"%) · ≤"+q.horizonDays+" "+tx("dd")+(q.targetScaled?" "+tx("scaled"):""),{color:T.white,fontWeight:"700"}),
+        H("h1"),
+        NUM(prob+"%",col,"n_prob"), NUM(path+"%",T.cyan,"n_path"), NUM(base+"%",T.gray1,"n_rw"),
+        NUM((edge>0?"+":"")+edge+" "+(LG==="en"?"pp":LG==="he"?"נק׳":"п.п."),col,"n_edge"), NUM(dp+"%",T.gray1,"n_end"),
+        H("h2"),
+        P(tx("chain").replace("{a}",path).replace("{b}",pBar).replace("{s}",c.coherence).replace("{c}",pBl).replace("{p}",prob),{direction:"ltr",textAlign:rtl?"right":"left",color:T.white}),
+        H("h3"), P(tx("st_ok"),{color:T.green}), P(tx("st_w"),{color:T.gold}), P(tx("st_b"),{color:T.red}),
+        P(tx("now")+": "+(st==="ok"?"✓":st==="warn"?"⚠":"✗")+"  "+path+"% "+(base>0?("÷ "+base+"% = ×"+(path/Math.max(1,base)).toFixed(2)):"")+", "+(edge>0?"+":"")+edge+" "+(LG==="en"?"pp":LG==="he"?"נק׳":"п.п."),{color:col,fontWeight:"800"}),
+        H("h4"), P("• "+tx("u1")), P("• "+tx("u2")), P("• "+tx("u3")), P("• "+tx("u4"),{color:T.gold}))));
+}
 function UseMeter(props){
   const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const hist=props.hist||[]; const start=props.start||100000;
   const [open,setOpen]=useState(false); const [cp,setCp]=useState(false); const [rs,setRs]=useState(0); const [,setN]=useState(0);
@@ -16967,7 +17049,7 @@ function StockCard({pick,idx,show,inWatch,onWatch,onApplyFilter,onAssess}){
           // vc601: judged against the random-walk baseline (a far target is rarely touched: 5–25 % is normal), not against 45/60 % direction thresholds
           const qSt = quantum.status||(quantum.targetScaled?(quantum.probability>=60?"ok":"warn"):(quantum.probability>=60?"ok":quantum.probability>=45?"warn":"bad"));
           const qBase = (quantum.base!=null)?(" · "+(LANG==="he"?"מסלול ":LANG==="en"?"path ":"путь ")+quantum.components.pathIntegral+"% / "+(LANG==="he"?"אקראי ":LANG==="en"?"random ":"случайно ")+quantum.base+"%"):"";
-          add(t("fr_quantum"), qSt, quantum.probability+"% ≤"+quantum.horizonDays+(LANG==="he"?" ימ'":LANG==="en"?"d":"д")+qBase+qScaledNote);
+          add(t("fr_quantum"), qSt, quantum.probability+"% ≤"+quantum.horizonDays+(LANG==="he"?" ימ'":LANG==="en"?"d":"д")+qBase+qScaledNote); try{ if(rows.length) rows[rows.length-1].help={q:quantum,cur:pick.currency}; }catch(_e){}
         }
         if(total){ const agRaw=Math.round(total.agreement*100);
           // negative = elements net-oppose the forecast → ✗ with explicit "против" label
@@ -16998,7 +17080,8 @@ function StockCard({pick,idx,show,inWatch,onWatch,onApplyFilter,onAssess}){
             e("span",{style:{width:"13px",textAlign:"center",fontSize:"11px",color:sC(r.st),fontWeight:"900"}},sS(r.st)),
             e("span",{style:{flex:1,fontSize:"9.4px",color:T.gray1,fontFamily:"monospace"}},r.name),
             e("span",{style:{fontSize:"9.4px",color:r.st==="na"?T.gray2:sC(r.st),fontFamily:"monospace",fontWeight:"700"}},
-              r.st==="na"?(r.val||t("cfd_na")):(r.val||"")))),
+              r.st==="na"?(r.val||t("cfd_na")):(r.val||"")),
+            r.help?e(QfHelp,{q:r.help.q,cur:r.help.cur}):null)),
           // Divergence notice: when models disagree beyond tolerance, show reason inline
           !spreadOk&&ccQuick&&e("div",{style:{margin:"8px 0 4px",background:`${T.gold}12`,border:`1px solid ${T.gold}44`,borderRadius:"8px",padding:"8px 10px",display:"flex",gap:"8px",alignItems:"flex-start"}},
             e("span",{style:{color:T.gold,fontSize:"13px",flexShrink:0}},"⚠"),
