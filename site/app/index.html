@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.153</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.154</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.153";
+const QE_VERSION = "15.12.154";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -4063,8 +4063,9 @@ function resultantVector(pick, parts){
   if(rp&&rp.direction&&rp.probability!=null) push('rp','Калиброванная вероятность', rp.direction,
      Math.abs(rp.probability-50)/50, Math.abs(rp.probability-50)/50);
   const qf=parts.qf;
-  if(qf&&qf.direction&&qf.probability!=null) push('qf','Квантовый (≤10 дн)', qf.direction,
-     0.6*Math.abs(qf.probability-50)/50, Math.abs(qf.probability-50)/50);
+  if(qf&&qf.direction&&qf.probability!=null){   // vc601: the touch probability (5–40 %) is NOT a direction confidence; use the end-side share when available
+    const dp=(qf.dirProb!=null)?qf.dirProb:qf.probability; const qd=(qf.dirProb!=null&&qf.dirProb<50)?(qf.direction==="up"?"down":"up"):qf.direction;
+    push('qf','Квантовый (≤10 дн)', qd, 0.6*Math.abs(dp-50)/50, Math.abs(dp-50)/50); }
   const proj=parts.proj;
   if(proj&&proj.direction) push('proj','Проекция следующего хода', proj.direction,
      (proj.strength||0)/100, (proj.strength||0)/100);
@@ -4525,17 +4526,26 @@ function quantumForecast(pick, opts){
   //     — so it can legitimately read much lower even when the directional call is
   //     well-supported by technicals (see targetScaled handling in the report UI).
   const N = Math.max(500, Math.min(6000, opts.paths||4000));
-  let touched=0;
+  let touched=0, endOk=0;
   for(let n=0;n<N;n++){
     let price=S, hit=false;
     for(let d=0;d<horizon;d++){
       const r=rets[(Math.random()*rets.length)|0];   // pure empirical bootstrap (debiased reachability)
       price*=Math.exp(r);
-      if(up? price>=target : price<=target){ hit=true; break; }
+      if(!hit && (up? price>=target : price<=target)) hit=true;
     }
     if(hit) touched++;
+    if(up? price>S : price<S) endOk++;      // vc601: share of paths that END the horizon on the favoured side (a direction probability on the usual 50 % scale)
   }
   const pPath=touched/N;
+  // vc601: null model — the SAME bootstrap with zero drift (random walk). The touch probability of a far target is small by nature
+  // (a 2σ target within 10 days ≈ 5 %), so it must be judged against this baseline, not against 45 %/60 % direction thresholds.
+  let pBase=pPath;
+  try{ const m0=rets.reduce((a,b)=>a+b,0)/rets.length; const N0=Math.max(600,Math.round(N/2)); let t0=0;
+    for(let n=0;n<N0;n++){ let price=S; let hit=false; for(let d=0;d<horizon;d++){ price*=Math.exp(rets[(Math.random()*rets.length)|0]-m0); if(up? price>=target : price<=target){ hit=true; break; } } if(hit) t0++; }
+    pBase=t0/N0; }catch(e){}
+  const vsRatio=pPath/Math.max(0.01,pBase), vsEdge=Math.round((pPath-pBase)*100);
+  const vsStatus=(vsRatio>=1.15&&vsEdge>=2)?"ok":(vsRatio>=0.85?"warn":"bad");
 
   // ── 2) SUPERPOSITION & INTERFERENCE of signal-waves ──
   const an=pick.analyses||{};
@@ -4595,6 +4605,7 @@ function quantumForecast(pick, opts){
     target_price:+target.toFixed(2),
     movePct:+( (up?1:-1)*mv*100 ).toFixed(1), targetScaled:targetScaled,
     probability: Math.round(pQ*100),
+    dirProb: Math.round(endOk/N*100), base: Math.round(pBase*100), edge: vsEdge, status: vsStatus,
     components:{
       pathIntegral: Math.round(pPath*100), paths:N,
       superposition: Math.round(pSuper*100), coherence:Math.round(coherence*100), phaseDeg:phaseDeg, waves:sig.length,
@@ -11858,7 +11869,7 @@ window.buildAnalysisReport = function(pick, lang){
         try{ const qf=window.EWEngine.quantumForecast(pick,{paths:1500});
           if(qf){
             // green if direction matches forecast, red if contradicts
-            const qfCol = (up&&qf.direction==="up")||(!up&&qf.direction==="down") ? C.green : C.red;
+            const qfCol = qf.status==="ok" ? C.green : (qf.status==="warn" ? C.gold||C.green : ((up&&qf.direction==="up")||(!up&&qf.direction==="down") ? C.green : C.red));
             sf(true); doc.setFontSize(9); doc.setTextColor(...qfCol);
             doc.text(LX("Квантовый прогноз (интеграл по траекториям Фейнмана, <=10 дн.): ","תחזית קוונטית (אינטגרל מסלולי פיינמן, עד 10 ימים): ","Quantum forecast (Feynman path integral, <=10 days): ")+qf.probability+LX("% к цели ","% ליעד ","% to target ")+cur+qf.target+(qf.targetScaled?LX(" (масштабирована)"," (מותאם קנה מידה)"," (scaled)"):""), 40, y); y+=15; } }catch(e){}
         // levels
@@ -13655,6 +13666,10 @@ const I18N = {
   valid_note:{ru:"Срок действия — ориентировочный: рассчитан по ожидаемому ходу и волатильности. Прогноз теряет силу при достижении цели/стопа или по истечении срока; пересчитывается при новом анализе.",he:"תוקף משוער.",en:"Validity is an estimate from expected move and volatility; recomputed each analysis."},
   refprob_title:{ru:"Уточнённая вероятность",he:"הסתברות מכוילת",en:"Calibrated probability"},
   ln_method:{ru:"лог-нормальная модель (интеграл Гаусса Φ)",he:"מודל לוג-נורמלי",en:"log-normal model (Gaussian integral Φ)"},
+  qf_vs:{ru:"Касание цели",he:"הגעה ליעד",en:"Target touch"},
+  qf_rw:{ru:"случайное блуждание",he:"הילוך אקראי",en:"random walk"},
+  qf_pp:{ru:"п.п.",he:"נק׳",en:"pp"},
+  qf_end:{ru:"закрытие на стороне прогноза",he:"סגירה בצד התחזית",en:"close on forecast side"},
   qf_title:{ru:"⚛️ КВАНТОВЫЙ ПРОГНОЗ (≤10 дней)",he:"⚛️ תחזית קוונטית (עד 10 ימים)",en:"⚛️ QUANTUM FORECAST (≤10 days)"},
   fr_title:{ru:"📋 ОТЧЁТ ПО ВСЕМ ПРОВЕРКАМ",he:"📋 דוח כל הבדיקות",en:"📋 ALL-CHECKS REPORT"},
   fr_trend:{ru:"Тренд",he:"מגמה",en:"Trend"},
@@ -16923,10 +16938,10 @@ function StockCard({pick,idx,show,inWatch,onWatch,onApplyFilter,onAssess}){
           // bad scale as direction-probability checks, which read as "broken" to users
           // even when every model agreed on direction.
           const qScaledNote = quantum.targetScaled ? " · "+t("fr_quantum_closer") : "";
-          const qSt = quantum.targetScaled
-            ? (quantum.probability>=60?"ok":"warn")
-            : (quantum.probability>=60?"ok":quantum.probability>=45?"warn":"bad");
-          add(t("fr_quantum"), qSt, quantum.probability+"% ≤"+quantum.horizonDays+(LANG==="he"?" ימ'":LANG==="en"?"d":"д")+qScaledNote);
+          // vc601: judged against the random-walk baseline (a far target is rarely touched: 5–25 % is normal), not against 45/60 % direction thresholds
+          const qSt = quantum.status||(quantum.targetScaled?(quantum.probability>=60?"ok":"warn"):(quantum.probability>=60?"ok":quantum.probability>=45?"warn":"bad"));
+          const qBase = (quantum.base!=null)?(" · "+(LANG==="he"?"אקראי ":LANG==="en"?"random ":"случайно ")+quantum.base+"%"):"";
+          add(t("fr_quantum"), qSt, quantum.probability+"% ≤"+quantum.horizonDays+(LANG==="he"?" ימ'":LANG==="en"?"d":"д")+qBase+qScaledNote);
         }
         if(total){ const agRaw=Math.round(total.agreement*100);
           // negative = elements net-oppose the forecast → ✗ with explicit "против" label
@@ -17055,7 +17070,7 @@ function StockCard({pick,idx,show,inWatch,onWatch,onApplyFilter,onAssess}){
 // ── ⚛️ QUANTUM-INSPIRED FORECAST (≤10 days) ──
       open&&(()=>{ const q=(()=>{ try{ return window.EWEngine.quantumForecast(pick); }catch(e){ return null; } })();
         if(!q) return null;
-        const qup=q.direction!=="down"; const qc=qup?T.green:T.red; const comp=q.components;
+        const qup=q.direction!=="down"; const qcDir=qup?T.green:T.red; const qc=q.status==="ok"?T.green:(q.status==="warn"?T.gold:(q.status==="bad"?T.red:qcDir)); const comp=q.components;
         const bar=(label,val,col,extra)=>e("div",{style:{marginBottom:"7px"}},
           e("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:"2px"}},
             e("span",{style:{fontSize:"8.8px",color:T.gray1,fontFamily:"monospace"}},label),
@@ -17066,7 +17081,8 @@ function StockCard({pick,idx,show,inWatch,onWatch,onApplyFilter,onAssess}){
           e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"2px"}},
             e("div",{style:{fontSize:"13.2px",color:T.cyan,fontFamily:"monospace",fontWeight:"900",letterSpacing:"0.5px"}},t("qf_title")),
             e("div",{style:{fontSize:"17.6px",color:qc,fontFamily:"monospace",fontWeight:"900"}},(qup?"▲ ":"▼ ")+q.probability+"%")),
-          e("div",{style:{fontSize:"8.8px",color:T.gray2,fontFamily:"monospace",marginBottom:"10px"}},t("qf_sub")),
+          e("div",{style:{fontSize:"8.8px",color:T.gray2,fontFamily:"monospace",marginBottom:"4px"}},t("qf_sub")),
+          q.base!=null&&e("div",{"data-testid":"qf-base",style:{fontSize:"9.6px",color:qc,fontFamily:"monospace",fontWeight:"700",marginBottom:"8px",lineHeight:1.45}},t("qf_vs")+": "+q.probability+"% · "+t("qf_rw")+" "+q.base+"% ("+(q.edge>0?"+":"")+q.edge+" "+t("qf_pp")+") · "+t("qf_end")+" "+q.dirProb+"%"),
           e("div",{style:{fontSize:"9.9px",color:T.white,fontFamily:"monospace",fontWeight:"700",marginBottom:"9px"}},
             t("qf_target")+": "+(pick.currency||"$")+q.target+" ("+(q.movePct>0?"+":"")+q.movePct+"%) · ≤"+q.horizonDays+" "+t("fc_days")+(q.targetScaled?(" · "+t("qf_scaled")):"")),
           bar(t("qf_path"),comp.pathIntegral,T.cyan,comp.paths+" "+t("qf_paths")),
