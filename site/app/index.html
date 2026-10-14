@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.160</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.161</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.160";
+const QE_VERSION = "15.12.161";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -15457,9 +15457,9 @@ function GoalBox(props){
     ttl:{ru:"🎯 Цель на 30 минут — чистая прибыль",he:"🎯 יעד ל-30 דקות — רווח נקי",en:"🎯 30-minute goal — net profit"},
     tg:{ru:"Заработать (чистыми), $",he:"להרוויח (נקי), $",en:"Earn (net), $"}, cp:{ru:"Лимит убытка, $ (пусто = как цель)",he:"מגבלת הפסד, $ (ריק = כמו היעד)",en:"Loss limit, $ (empty = same as goal)"}, mn:{ru:"Окно, минут",he:"חלון, דקות",en:"Window, min"},
     go:{ru:"▶ Старт",he:"▶ התחל",en:"▶ Start"}, off:{ru:"■ Остановить",he:"■ עצור",en:"■ Stop"},
-    note:{ru:"Супервайзер и контролер следят за суммой: чистая прибыль = капитал сейчас − капитал на старте (комиссии и открытые позиции учтены). Цель НЕ повышает риск: размер и число сделок не растут. Достигнута цель или лимит убытка — новые входы ИИ блокируются до конца окна; открытые позиции выходят только по своим цели/стопу. Прибыль за 30 минут гарантировать нельзя.",
-          he:"המפקח והבקר עוקבים אחר הסכום: רווח נקי = הון עכשיו − הון בהתחלה (עמלות ופוזיציות פתוחות כלולות). היעד לא מגדיל סיכון: גודל ומספר העסקאות לא גדלים. הושג היעד או מגבלת ההפסד — כניסות חדשות של ה-AI נחסמות עד סוף החלון; פוזיציות פתוחות יוצאות רק ביעד/סטופ שלהן. אי אפשר להבטיח רווח ב-30 דקות.",
-          en:"The supervisor and controller watch the amount: net profit = equity now − equity at start (fees and open positions included). The goal does NOT raise risk: size and trade count do not grow. When the goal or the loss limit is reached, NEW AI entries are blocked until the window ends; open positions leave only at their own target/stop. A profit in 30 minutes cannot be guaranteed."},
+    note:{ru:"Супервайзер и контролер следят за суммой: чистая прибыль = капитал сейчас − капитал на старте (комиссии и открытые позиции учтены). Пока цель не достигнута, ИИ каждые ~90 с запускает новый поиск и заходит в новые сделки — но размер сделки, лимит риска и стопы прежние. Достигнута цель или лимит убытка — новые входы ИИ блокируются до конца окна; открытые позиции выходят только по своим цели/стопу. Прибыль за 30 минут гарантировать нельзя.",
+          he:"המפקח והבקר עוקבים אחר הסכום: רווח נקי = הון עכשיו − הון בהתחלה (עמלות ופוזיציות פתוחות כלולות). כל עוד היעד לא הושג, ה-AI מפעיל כל ~90 שניות חיפוש חדש ונכנס לעסקאות חדשות — אך גודל העסקה, מגבלת הסיכון והסטופים ללא שינוי. הושג היעד או מגבלת ההפסד — כניסות חדשות של ה-AI נחסמות עד סוף החלון; פוזיציות פתוחות יוצאות רק ביעד/סטופ שלהן. אי אפשר להבטיח רווח ב-30 דקות.",
+          en:"The supervisor and controller watch the amount: net profit = equity now − equity at start (fees and open positions included). Until the goal is reached, the AI starts a new search every ~90 s and enters new trades — but trade size, the risk cap and stops are unchanged. When the goal or the loss limit is reached, NEW AI entries are blocked until the window ends; open positions leave only at their own target/stop. A profit in 30 minutes cannot be guaranteed."},
     st_run:{ru:"идёт",he:"פעיל",en:"running"}, st_hit:{ru:"ЦЕЛЬ ДОСТИГНУТА — новые входы заблокированы до конца окна",he:"היעד הושג — כניסות חדשות חסומות עד סוף החלון",en:"GOAL REACHED — new entries blocked until the window ends"}, st_stop:{ru:"ЛИМИТ УБЫТКА — новые входы заблокированы до конца окна",he:"מגבלת הפסד — כניסות חדשות חסומות עד סוף החלון",en:"LOSS LIMIT — new entries blocked until the window ends"},
     left:{ru:"осталось",he:"נותר",en:"left"}, net:{ru:"сейчас",he:"עכשיו",en:"now"}, peak:{ru:"максимум",he:"שיא",en:"peak"}, low:{ru:"минимум",he:"שפל",en:"low"},
     feas:{ru:"По вашим закрытым сделкам: из {n} получасовых окон цель достигало {p}% (медиана {m}$).",he:"לפי העסקאות הסגורות שלך: מתוך {n} חלונות של חצי שעה היעד הושג ב-{p}% (חציון {m}$).",en:"From your closed trades: of {n} half-hour windows, {p}% reached the goal (median ${m})."},
@@ -20343,6 +20343,9 @@ function App(){
     setVxAiBusy(false);
   };
   vxPlayRef.current=vxAutoPlay;   // always call the freshest closure from the long-running loop
+  // vc608: while a 30-minute goal window is running (goal not yet reached), push a NEW scan/entry session every ~90 s (more attempts, never more risk per trade: size, heat cap, fee gate and stops are unchanged)
+  useEffect(()=>{ const iv=setInterval(()=>{ try{ if(!vxAutoRef.current||vxLockRef.current||!vxPlayRef.current||!window.QEGOAL) return; const g=window.QEGOAL.update(); if(!(g&&g.on&&g.status==="run")) return;
+    if(Date.now()-(window.__vxLastEnd||0)<90000) return; try{ window.QEVXLog.log("INFO","goal.push",{net:g.net,target:g.target,left:Math.round((g.min*60000-(Date.now()-g.t0))/1000)}); }catch(_){} vxPlayRef.current(); }catch(e){} },20000); return ()=>clearInterval(iv); },[]);
   // continuous auto-play loop: runs while "Авто" is on and the user is signed in — NOT tied to the VX window being open.
   useEffect(()=>{
     if(!(vxAuto && authUser)) return;
