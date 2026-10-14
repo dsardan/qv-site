@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.162</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.163</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.162";
+const QE_VERSION = "15.12.163";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -15493,7 +15493,7 @@ function GoalBox(props){
   const g=window.QEGOAL.load(); const run=!!(g.on||g.auto); const now=Date.now();
   const usd=(v)=>(v>=0?"+":"−")+"$"+Math.abs(v).toFixed(2);
   const inp=(val,set,ph,w)=>e("input",{type:"number",inputMode:"decimal",value:val,placeholder:ph,onChange:(ev)=>{ set(ev.target.value); setErr(""); },style:{width:w||"100%",boxSizing:"border-box",background:T.bg2,border:"1px solid "+T.border,color:T.white,borderRadius:"8px",padding:"9px 10px",fontFamily:"monospace",fontSize:"14px",fontWeight:"800"}});
-  const lab=(k)=>e("div",{style:{fontSize:"10px",color:T.gray2,fontFamily:"monospace",marginBottom:"3px"}},tx(k));
+  const lab=(k)=>e("div",{style:{fontSize:"10px",color:T.gray2,fontFamily:"monospace",marginBottom:"3px",minHeight:"40px",display:"flex",alignItems:"flex-end",lineHeight:1.25}},tx(k));
   const eq0=(()=>{ try{ return getEq()||0; }catch(_){ return 0; } })();
   const dmath=(t0,h,m)=>{ if(!(t0>0)) return null; const hh=h>0?h:6.5, w=60/(m>0?m:30), d=hh*w*t0; const pc=eq0>0?d/eq0*100:null; return tx("dmath").replace("{h}",hh).replace("{w}",w).replace("{a}",t0).replace("{d}",d.toFixed(0)).replace("{p}",pc!=null?pc.toFixed(2):"?").replace("{x}",pc!=null?Math.pow(1+pc/100,250).toFixed(1):"?"); };
   let body=null;
@@ -15528,8 +15528,8 @@ function GoalBox(props){
         e("div",{style:{flex:"1 1 30%"}},lab("hr"),inp(hv,setHv,"6.5")),
         e("div",{style:{flex:"1 1 25%"}},lab("rk"),inp(rv,setRv,"1")),
         e("div",{style:{flex:"1 1 40%"}},lab("dc"),inp(dv,setDv,""))),
-      e("label",{style:{display:"flex",gap:"8px",alignItems:"center",fontSize:"11px",color:T.gray1,fontFamily:"monospace",marginBottom:"7px",cursor:"pointer"}},
-        e("input",{type:"checkbox",checked:au,onChange:(ev)=>setAu(ev.target.checked),"data-testid":"goal-auto"}),tx("au")),
+      e("div",{"data-testid":"goal-auto",role:"checkbox","aria-checked":au?"true":"false",onClick:()=>setAu(!au),style:{display:"flex",gap:"9px",alignItems:"center",fontSize:"11px",color:T.gray1,fontFamily:"monospace",marginBottom:"7px",cursor:"pointer"}},
+        e("span",{style:{flex:"0 0 22px",width:"22px",height:"22px",boxSizing:"border-box",border:"2px solid "+(au?T.green:T.gray2),background:au?T.green+"33":"transparent",color:T.green,borderRadius:"5px",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:"15px",fontWeight:"900",lineHeight:1}},au?"✓":""),tx("au")),
       DM&&e("div",{style:{fontSize:"10.8px",color:T.cyan,fontFamily:"monospace",lineHeight:1.45,marginBottom:"7px",direction:"ltr",textAlign:rtl?"right":"left"}},DM),
       F&&e("div",{style:{fontSize:"10.5px",color:F.enough?T.gray1:T.gray2,fontFamily:"monospace",lineHeight:1.45,marginBottom:"7px"}},
         F.enough?tx("feas").replace("{n}",F.n).replace("{p}",Math.round(F.share*100)).replace("{m}",F.med.toFixed(2)):tx("nof").replace("{n}",F.n)),
