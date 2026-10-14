@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.159</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.160</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.159";
+const QE_VERSION = "15.12.160";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -6167,6 +6167,35 @@ window.QEUSE=(function(){ var KEY="qe_use_v1", MAXI=700, KEEP=60, SEL="button,[r
   function start(){ try{ load(); document.addEventListener("click",onClick,true); setTimeout(scan,8000); setInterval(scan,30000); document.addEventListener("visibilitychange",function(){ if(document.visibilityState==="hidden") save(); }); window.addEventListener("pagehide",save); }catch(e){} }
   start();
   return {report:report,reset:reset,scan:scan,save:save,_raw:function(){ return load(); }}; })();
+/* ============ QEGOAL - 30-minute net-profit goal for the virtual exchange (vc607) ============
+   The USER writes an amount; the supervisor/controller WATCH it: net = equity now - equity at start (fees included, open P&L included).
+   It never raises risk to chase the goal (no bigger size, no extra trades). When the goal is reached, or the loss limit is hit,
+   NEW entries by the AI are blocked until the window ends; open positions still leave only at their own target / stop. */
+window.QEGOAL=(function(){ var KEY="qe_vx_goal_v1", eqFn=null;
+  function load(){ try{ var o=JSON.parse(localStorage.getItem(KEY)||"null"); return o&&typeof o==="object"?o:{on:false,hist:[]}; }catch(e){ return {on:false,hist:[]}; } }
+  function save(g){ try{ localStorage.setItem(KEY,JSON.stringify(g)); }catch(e){} }
+  function log(l,m,d){ try{ window.QEVXLog&&window.QEVXLog.log(l,m,d); }catch(e){} }
+  function median(a){ if(!a.length) return 0; var b=a.slice().sort(function(x,y){return x-y;}), m=b.length>>1; return b.length%2?b[m]:(b[m-1]+b[m])/2; }
+  function eq(){ try{ var v=eqFn?eqFn():null; return (v>0&&isFinite(v))?v:null; }catch(e){ return null; } }
+  function start(target,cap,min){ var e0=eq(); target=+target; if(!(target>0)||!(e0>0)) return {ok:false,error:!(target>0)?"target":"noeq"}; cap=(+cap>0)?+cap:target; min=Math.max(5,Math.min(240,Math.round(+min||30)));
+    var g=load(); g.on=true; g.target=target; g.cap=cap; g.min=min; g.t0=Date.now(); g.eq0=e0; g.peak=0; g.low=0; g.net=0; g.status="run"; save(g); log("INFO","goal.start",{target:target,cap:cap,min:min,eq0:+e0.toFixed(2)}); return {ok:true}; }
+  function finish(g,res){ g.hist=(g.hist||[]).concat([{ts:Date.now(),t0:g.t0,target:g.target,cap:g.cap,min:g.min,net:+(g.net||0).toFixed(2),peak:+(g.peak||0).toFixed(2),low:+(g.low||0).toFixed(2),res:res}]).slice(-30);
+    g.on=false; g.status=res; save(g); log(res==="hit"?"INFO":"WARN","goal.end",{res:res,target:g.target,net:+(g.net||0).toFixed(2),peak:+(g.peak||0).toFixed(2),low:+(g.low||0).toFixed(2)}); }
+  function stop(){ var g=load(); if(!g.on) return; g.status="off"; g.on=false; save(g); log("INFO","goal.off",{net:+(g.net||0).toFixed(2)}); }
+  /* evaluate now; returns the (possibly updated) state */
+  function update(){ var g=load(); if(!g.on) return g; var e=eq(); if(e==null) return g; var now=Date.now(), el=now-g.t0, net=e-g.eq0;
+    g.net=+net.toFixed(2); if(net>g.peak) g.peak=+net.toFixed(2); if(net<g.low) g.low=+net.toFixed(2);
+    if(g.status==="run"){
+      if(net>=g.target){ g.status="hit"; g.hitAt=now; log("INFO","goal.hit",{net:+net.toFixed(2),target:g.target,min:+(el/60000).toFixed(1)}); }
+      else if(net<=-g.cap){ g.status="stop"; g.stopAt=now; log("WARN","goal.stop",{net:+net.toFixed(2),cap:g.cap,min:+(el/60000).toFixed(1)}); } }
+    if(el>=g.min*60000){ finish(g,g.status==="hit"?"hit":(g.status==="stop"?"stop":"miss")); return g; }
+    save(g); return g; }
+  /* are NEW entries by the AI blocked right now? (goal reached or loss limit hit, window still open) */
+  function halted(){ var g=update(); return !!(g.on&&(g.status==="hit"||g.status==="stop")); }
+  /* feasibility from the account's OWN closed trades: share of 30-min windows (with at least one close) that reached the target */
+  function feas(hist,target,min){ var W=(min||30)*60000, b={}, n=0; (hist||[]).forEach(function(h){ var v=(h.net!=null)?h.net:((h.realized||0)-(h.fee||0)); if(!(Math.abs(h.realized||0)>1e-9)||!h.ts) return; var k=Math.floor(h.ts/W); b[k]=(b[k]||0)+v; });
+    var a=Object.keys(b).map(function(k){ return b[k]; }); n=a.length; if(n<10) return {n:n,enough:false}; var hit=a.filter(function(x){ return x>=target; }).length; return {n:n,enough:true,share:hit/n,med:median(a)}; }
+  return {load:load,start:start,stop:stop,update:update,halted:halted,feas:feas,setEq:function(f){ eqFn=f; }}; })();
 window.QEVXLog=(function(){ var KEY="qe_vxlog_v1", MAX=500;
   function ts(){ var d=new Date(),p=function(n){return String(n).padStart(2,"0");}; return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds()); }
   function read(){ try{ return (localStorage.getItem(KEY)||"").split("\n").filter(Boolean); }catch(e){ return []; } }
@@ -14653,6 +14682,7 @@ function _vxApply(acct, action, ticker, qty, price, fee, by, meta){
   const tradeQty = action==="buy" ? qty : -qty;
   const cashDelta = -(tradeQty*price) - fee;
   if(cashDelta<0 && acct.cash+cashDelta < -1e-6) return { ok:false, error:"no_cash" };
+  try{ if(by==="ai" && window.QEGOAL){ const _p0=acct.positions.find(p=>p.ticker===ticker), _q0=_p0?_p0.qty:0; const _opens=(_q0===0)||((_q0>0&&tradeQty>0)||(_q0<0&&tradeQty<0)); if(_opens && window.QEGOAL.halted()) return { ok:false, error:"goal_halt" }; } }catch(_e){}
   const positions = acct.positions.map(p=>({...p}));
   let idx = positions.findIndex(p=>p.ticker===ticker);
   const now = meta.now || Date.now();
@@ -15417,6 +15447,62 @@ function QfHelp(props){
         H("h3"), P(tx("st_ok"),{color:T.green}), P(tx("st_w"),{color:T.gold}), P(tx("st_b"),{color:T.red}),
         P(tx("now")+": "+(st==="ok"?"✓":st==="warn"?"⚠":"✗")+"  "+path+"% "+(base>0?("÷ "+base+"% = ×"+(path/Math.max(1,base)).toFixed(2)):"")+", "+(edge>0?"+":"")+edge+" "+(LG==="en"?"pp":LG==="he"?"נק׳":"п.п."),{color:col,fontWeight:"800"}),
         H("h4"), P("• "+tx("u1")), P("• "+tx("u2")), P("• "+tx("u3")), P("• "+tx("u4"),{color:T.gold}))));
+}
+function GoalBox(props){
+  const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const acct=props.acct; const getEq=props.getEq;
+  const [,setN]=useState(0); const [tv,setTv]=useState(""); const [cv,setCv]=useState(""); const [mv,setMv]=useState("30"); const [err,setErr]=useState(""); const [open,setOpen]=useState(true);
+  useEffect(()=>{ try{ window.QEGOAL.setEq(getEq); }catch(_){} });
+  useEffect(()=>{ const id=setInterval(()=>{ try{ window.QEGOAL.update(); }catch(_){} setN(x=>x+1); },2000); return ()=>clearInterval(id); },[]);
+  const X={
+    ttl:{ru:"🎯 Цель на 30 минут — чистая прибыль",he:"🎯 יעד ל-30 דקות — רווח נקי",en:"🎯 30-minute goal — net profit"},
+    tg:{ru:"Заработать (чистыми), $",he:"להרוויח (נקי), $",en:"Earn (net), $"}, cp:{ru:"Лимит убытка, $ (пусто = как цель)",he:"מגבלת הפסד, $ (ריק = כמו היעד)",en:"Loss limit, $ (empty = same as goal)"}, mn:{ru:"Окно, минут",he:"חלון, דקות",en:"Window, min"},
+    go:{ru:"▶ Старт",he:"▶ התחל",en:"▶ Start"}, off:{ru:"■ Остановить",he:"■ עצור",en:"■ Stop"},
+    note:{ru:"Супервайзер и контролер следят за суммой: чистая прибыль = капитал сейчас − капитал на старте (комиссии и открытые позиции учтены). Цель НЕ повышает риск: размер и число сделок не растут. Достигнута цель или лимит убытка — новые входы ИИ блокируются до конца окна; открытые позиции выходят только по своим цели/стопу. Прибыль за 30 минут гарантировать нельзя.",
+          he:"המפקח והבקר עוקבים אחר הסכום: רווח נקי = הון עכשיו − הון בהתחלה (עמלות ופוזיציות פתוחות כלולות). היעד לא מגדיל סיכון: גודל ומספר העסקאות לא גדלים. הושג היעד או מגבלת ההפסד — כניסות חדשות של ה-AI נחסמות עד סוף החלון; פוזיציות פתוחות יוצאות רק ביעד/סטופ שלהן. אי אפשר להבטיח רווח ב-30 דקות.",
+          en:"The supervisor and controller watch the amount: net profit = equity now − equity at start (fees and open positions included). The goal does NOT raise risk: size and trade count do not grow. When the goal or the loss limit is reached, NEW AI entries are blocked until the window ends; open positions leave only at their own target/stop. A profit in 30 minutes cannot be guaranteed."},
+    st_run:{ru:"идёт",he:"פעיל",en:"running"}, st_hit:{ru:"ЦЕЛЬ ДОСТИГНУТА — новые входы заблокированы до конца окна",he:"היעד הושג — כניסות חדשות חסומות עד סוף החלון",en:"GOAL REACHED — new entries blocked until the window ends"}, st_stop:{ru:"ЛИМИТ УБЫТКА — новые входы заблокированы до конца окна",he:"מגבלת הפסד — כניסות חדשות חסומות עד סוף החלון",en:"LOSS LIMIT — new entries blocked until the window ends"},
+    left:{ru:"осталось",he:"נותר",en:"left"}, net:{ru:"сейчас",he:"עכשיו",en:"now"}, peak:{ru:"максимум",he:"שיא",en:"peak"}, low:{ru:"минимум",he:"שפל",en:"low"},
+    feas:{ru:"По вашим закрытым сделкам: из {n} получасовых окон цель достигало {p}% (медиана {m}$).",he:"לפי העסקאות הסגורות שלך: מתוך {n} חלונות של חצי שעה היעד הושג ב-{p}% (חציון {m}$).",en:"From your closed trades: of {n} half-hour windows, {p}% reached the goal (median ${m})."},
+    nof:{ru:"Мало данных для оценки реалистичности (нужно ≥10 окон со сделками, есть {n}).",he:"מעט נתונים להערכת מציאותיות (נדרשים ≥10 חלונות עם עסקאות, יש {n}).",en:"Too little data to judge realism (need ≥10 windows with trades, have {n})."},
+    hist:{ru:"Прошлые окна",he:"חלונות קודמים",en:"Past windows"}, r_hit:{ru:"цель",he:"יעד",en:"goal"}, r_miss:{ru:"не достигнуто",he:"לא הושג",en:"missed"}, r_stop:{ru:"лимит убытка",he:"מגבלת הפסד",en:"loss limit"},
+    e_t:{ru:"Введите сумму цели больше нуля",he:"הזן סכום יעד גדול מאפס",en:"Enter a goal amount above zero"}, e_e:{ru:"Нет данных о капитале — откройте счёт VX",he:"אין נתוני הון — פתח חשבון VX",en:"No equity data — open the VX account"}
+  };
+  const tx=(k)=>(X[k]&&(X[k][LG]||X[k].en))||k; const rtl=LG==="he";
+  const g=window.QEGOAL.load(); const run=!!g.on; const now=Date.now();
+  const usd=(v)=>(v>=0?"+":"−")+"$"+Math.abs(v).toFixed(2);
+  const inp=(val,set,ph,w)=>e("input",{type:"number",inputMode:"decimal",value:val,placeholder:ph,onChange:(ev)=>{ set(ev.target.value); setErr(""); },style:{width:w||"100%",boxSizing:"border-box",background:T.bg2,border:"1px solid "+T.border,color:T.white,borderRadius:"8px",padding:"9px 10px",fontFamily:"monospace",fontSize:"14px",fontWeight:"800"}});
+  let body=null;
+  if(run){ const el=now-g.t0, left=Math.max(0,g.min*60000-el), mm=Math.floor(left/60000), ss=Math.floor(left/1000)%60; const pr=Math.max(0,Math.min(1,(g.net||0)/g.target)); const col=g.status==="hit"?T.green:g.status==="stop"?T.red:(g.net>=0?T.cyan:T.gold);
+    body=e("div",null,
+      e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"baseline",direction:"ltr"}},
+        e("span",{style:{fontSize:"22px",color:col,fontFamily:"monospace",fontWeight:"900"}},usd(g.net||0)+" / $"+g.target),
+        e("span",{style:{fontSize:"13px",color:T.white,fontFamily:"monospace",fontWeight:"800"}},tx("left")+" "+mm+":"+(ss<10?"0":"")+ss)),
+      e("div",{style:{height:"8px",borderRadius:"4px",background:T.bg2,overflow:"hidden",margin:"7px 0"}},e("div",{style:{width:Math.round(pr*100)+"%",height:"100%",background:col}})),
+      e("div",{style:{fontSize:"11px",color:T.gray1,fontFamily:"monospace",direction:"ltr",textAlign:rtl?"right":"left"}},tx("peak")+" "+usd(g.peak||0)+" · "+tx("low")+" "+usd(g.low||0)+" · "+(g.status==="run"?tx("st_run"):"")),
+      (g.status==="hit"||g.status==="stop")&&e("div",{style:{fontSize:"11.5px",color:col,fontFamily:"monospace",fontWeight:"900",marginTop:"6px"}},tx(g.status==="hit"?"st_hit":"st_stop")),
+      e("button",{"data-testid":"goal-stop",onClick:()=>{ window.QEGOAL.stop(); setN(x=>x+1); },style:{marginTop:"9px",background:T.bg2,border:"1px solid "+T.border,color:T.white,borderRadius:"8px",padding:"8px 12px",fontFamily:"monospace",fontWeight:"800",fontSize:"12px",cursor:"pointer"}},tx("off")));
+  } else {
+    const t0=parseFloat(tv); const F=(t0>0)?window.QEGOAL.feas((acct&&acct.history)||[],t0,parseFloat(mv)||30):null;
+    body=e("div",null,
+      e("div",{style:{display:"flex",gap:"8px",marginBottom:"7px"}},
+        e("div",{style:{flex:"1 1 40%"}},e("div",{style:{fontSize:"10px",color:T.gray2,fontFamily:"monospace",marginBottom:"3px"}},tx("tg")),inp(tv,setTv,"100")),
+        e("div",{style:{flex:"1 1 40%"}},e("div",{style:{fontSize:"10px",color:T.gray2,fontFamily:"monospace",marginBottom:"3px"}},tx("cp")),inp(cv,setCv,"")),
+        e("div",{style:{flex:"0 0 22%"}},e("div",{style:{fontSize:"10px",color:T.gray2,fontFamily:"monospace",marginBottom:"3px"}},tx("mn")),inp(mv,setMv,"30"))),
+      F&&e("div",{style:{fontSize:"10.5px",color:F.enough?T.gray1:T.gray2,fontFamily:"monospace",lineHeight:1.45,marginBottom:"7px"}},
+        F.enough?tx("feas").replace("{n}",F.n).replace("{p}",Math.round(F.share*100)).replace("{m}",F.med.toFixed(2)):tx("nof").replace("{n}",F.n)),
+      err&&e("div",{style:{fontSize:"11px",color:T.red,fontFamily:"monospace",marginBottom:"6px"}},err),
+      e("button",{"data-testid":"goal-start",onClick:()=>{ const r=window.QEGOAL.start(tv,cv,mv); if(!r.ok) setErr(tx(r.error==="target"?"e_t":"e_e")); else setN(x=>x+1); },style:{width:"100%",background:T.green+"22",border:"1.5px solid "+T.green,color:T.green,borderRadius:"8px",padding:"10px",fontFamily:"monospace",fontWeight:"900",fontSize:"13px",cursor:"pointer"}},tx("go")));
+  }
+  const H=(g.hist||[]).slice(-5).reverse(); const hn=(g.hist||[]).length, hh=(g.hist||[]).filter(x=>x.res==="hit").length;
+  return e("div",{"data-testid":"goalbox",dir:rtl?"rtl":"ltr",style:{background:T.bg1,border:"1.5px solid "+(run?T.cyan:T.border),borderRadius:"12px",padding:"10px 12px 12px",marginBottom:"12px"}},
+    e("div",{onClick:()=>setOpen(!open),style:{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}},
+      e("div",{style:{fontSize:"13px",color:T.cyan,fontFamily:"monospace",fontWeight:"900"}},tx("ttl")),
+      e("span",{style:{color:T.gray2,fontSize:"12px"}},open?"▾":"▸")),
+    open&&e("div",{style:{marginTop:"8px"}},body,
+      e("div",{style:{fontSize:"9.6px",color:T.gray2,fontFamily:"monospace",lineHeight:1.5,marginTop:"9px"}},tx("note")),
+      H.length>0&&e("div",{style:{marginTop:"8px",fontSize:"10.4px",color:T.gray1,fontFamily:"monospace",lineHeight:1.55,direction:"ltr",textAlign:rtl?"right":"left"}},
+        e("div",{style:{color:T.gray2}},tx("hist")+" ("+hh+"/"+hn+" "+tx("r_hit")+")"),
+        H.map((x,i)=>e("div",{key:i},new Date(x.ts).toLocaleString().slice(0,17)+"  $"+x.target+" → "+usd(x.net)+"  "+tx("r_"+x.res))))));
 }
 function UseMeter(props){
   const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const hist=props.hist||[]; const start=props.start||100000;
@@ -21983,6 +22069,7 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
                   row("🤖 "+t("vx_ai_side"),bs.aiRealized,bs.aiTrades,T.purple),
                   row("👤 "+t("vx_you_side"),bs.youRealized,bs.youTrades,T.cyan));
               })(),
+              e(GoalBox,{T:T,LANG:LANG,acct:vxAcct,getEq:()=>{ try{ const a0=_acctNow()||vxAcct; return a0?_vxEquity(a0,{...vxPricesRef.current}).equity:null; }catch(_e){ return null; } }}),
               // ── control center: autoplay → positions → sections (collapsible, state remembered) ──
               e("div",{style:{background:T.bg1,border:`1px solid ${T.border}`,borderRadius:"12px",padding:"10px 12px 12px",marginBottom:"12px"}},
                 e("div",{style:{display:"flex",gap:"8px",marginTop:"8px"}},
