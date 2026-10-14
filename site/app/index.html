@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.163</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.164</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.163";
+const QE_VERSION = "15.12.164";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -15467,7 +15467,7 @@ function QfHelp(props){
 }
 function GoalBox(props){
   const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const acct=props.acct; const getEq=props.getEq;
-  const [,setN]=useState(0); const [tv,setTv]=useState(""); const [cv,setCv]=useState(""); const [mv,setMv]=useState("30"); const [hv,setHv]=useState("6.5"); const [rv,setRv]=useState("1"); const [dv,setDv]=useState(""); const [au,setAu]=useState(true); const [err,setErr]=useState(""); const [open,setOpen]=useState(true);
+  const [,setN]=useState(0); const [tv,setTv]=useState(""); const [cv,setCv]=useState(""); const [mv,setMv]=useState("30"); const [hv,setHv]=useState("6.5"); const [rv,setRv]=useState("1"); const [dv,setDv]=useState(""); const [au,setAu]=useState(true); const [err,setErr]=useState(""); const [open,setOpen]=useState(true); const [adv,setAdv]=useState(false);
   useEffect(()=>{ try{ window.QEGOAL.setEq(getEq); if(props.isOpen) window.QEGOAL.setOpen(props.isOpen); }catch(_){} });
   useEffect(()=>{ const id=setInterval(()=>{ try{ window.QEGOAL.update(); }catch(_){} setN(x=>x+1); },2000); return ()=>clearInterval(id); },[]);
   const X={
@@ -15475,6 +15475,9 @@ function GoalBox(props){
     tg:{ru:"Заработать за окно, $",he:"להרוויח לחלון, $",en:"Earn per window, $"}, cp:{ru:"Лимит убытка окна, $ (пусто = как цель)",he:"מגבלת הפסד לחלון, $ (ריק = כמו היעד)",en:"Window loss limit, $ (empty = same as goal)"}, mn:{ru:"Окно, мин",he:"חלון, דק׳",en:"Window, min"},
     hr:{ru:"Часов торговли в день",he:"שעות מסחר ביום",en:"Trading hours per day"}, rk:{ru:"Риск ×1…×2",he:"סיכון ×1…×2",en:"Risk ×1…×2"}, dc:{ru:"Лимит убытка дня, $ (пусто = 3× окна)",he:"מגבלת הפסד יומית, $ (ריק = 3× חלון)",en:"Day loss limit, $ (empty = 3× window)"},
     au:{ru:"Повторять окна весь день (следующее окно стартует сразу)",he:"חזור על חלונות כל היום (החלון הבא מתחיל מיד)",en:"Repeat windows all day (next window starts immediately)"},
+    tg30:{ru:"Сколько заработать за 30 минут (чистыми), $ — остальное я заполню сам",he:"כמה להרוויח ב-30 דקות (נקי), $ — את השאר אמלא בעצמי",en:"How much to earn in 30 minutes (net), $ — I fill in the rest myself"},
+    autoline:{ru:"Авто: окно {m} мин · лимит убытка окна ${c} · {h} ч торговли → цель дня ${d} · лимит убытка дня ${l} · риск ×{r} · окна повторяются весь день",he:"אוטומטי: חלון {m} דק׳ · מגבלת הפסד לחלון ${c} · {h} שעות מסחר → יעד יומי ${d} · מגבלת הפסד יומית ${l} · סיכון ×{r} · החלונות חוזרים כל היום",en:"Auto: {m}-min window · window loss limit ${c} · {h} h of trading → day goal ${d} · day loss limit ${l} · risk ×{r} · windows repeat all day"},
+    adv:{ru:"⚙ Авто-настройки (можно изменить)",he:"⚙ הגדרות אוטומטיות (ניתן לשנות)",en:"⚙ Auto settings (editable)"},
     go:{ru:"▶ Старт",he:"▶ התחל",en:"▶ Start"}, off:{ru:"■ Остановить всё",he:"■ עצור הכול",en:"■ Stop all"},
     note:{ru:"Супервайзер и контролер следят за суммой: чистая прибыль = капитал сейчас − капитал на старте (комиссии и открытые позиции учтены). Цель дня = часы × окон в час × сумма окна (для 30 мин: часы × 2 × сумма). Пока цель окна не достигнута, ИИ каждые ~90 с запускает новый поиск и заходит в новые сделки. Достигнута цель окна или его лимит убытка — новые входы блокируются до конца окна, затем стартует следующее. Достигнута цель дня или лимит убытка дня — новые входы блокируются до завтра. Открытые позиции выходят только по своей цели/стопу. Множитель риска (если >1) увеличивает размер свопинг-входов, но не выше «тепла» контролера; он увеличивает и прибыль, и убыток и не повышает шанс достичь цели. Гарантировать прибыль нельзя.",
           he:"המפקח והבקר עוקבים אחר הסכום: רווח נקי = הון עכשיו − הון בהתחלה (כולל עמלות ופוזיציות פתוחות). יעד היום = שעות × חלונות בשעה × סכום החלון (ל-30 דק׳: שעות × 2 × סכום). כל עוד יעד החלון לא הושג, ה-AI מפעיל כל ~90 שניות חיפוש חדש ונכנס לעסקאות חדשות. הושג יעד החלון או מגבלת ההפסד שלו — כניסות חדשות נחסמות עד סוף החלון, ואז מתחיל הבא. הושג יעד היום או מגבלת ההפסד היומית — כניסות חדשות נחסמות עד מחר. פוזיציות פתוחות יוצאות רק ביעד/סטופ שלהן. מכפיל סיכון (אם >1) מגדיל את גודל כניסות הסווינג, אך לא מעבר ל«חום» של הבקר; הוא מגדיל גם רווח וגם הפסד ולא מעלה את הסיכוי להשיג יעד. אי אפשר להבטיח רווח.",
@@ -15519,17 +15522,22 @@ function GoalBox(props){
       e("button",{"data-testid":"goal-stop",onClick:()=>{ window.QEGOAL.stop(); setN(x=>x+1); },style:{marginTop:"9px",background:T.bg2,border:"1px solid "+T.border,color:T.white,borderRadius:"8px",padding:"8px 12px",fontFamily:"monospace",fontWeight:"800",fontSize:"12px",cursor:"pointer"}},tx("off")));
   } else {
     const t0=parseFloat(tv); const F=(t0>0)?window.QEGOAL.feas((acct&&acct.history)||[],t0,parseFloat(mv)||30):null; const DM=au?dmath(t0,parseFloat(hv),parseFloat(mv)):null;
+    const aCap=t0>0?(parseFloat(cv)>0?parseFloat(cv):t0):0, aHrs=parseFloat(hv)>0?parseFloat(hv):6.5, aMin=parseFloat(mv)>0?parseFloat(mv):30, aDay=parseFloat(dv)>0?parseFloat(dv):3*aCap, aRisk=Math.max(1,Math.min(2,parseFloat(rv)||1));
+    const AUTO=t0>0?tx("autoline").replace("{m}",aMin).replace("{c}",aCap).replace("{h}",aHrs).replace("{d}",(aHrs*(60/aMin)*t0).toFixed(0)).replace("{l}",aDay.toFixed(0)).replace("{r}",aRisk):null;
     body=e("div",null,
-      e("div",{style:{display:"flex",gap:"8px",marginBottom:"7px"}},
-        e("div",{style:{flex:"1 1 40%"}},lab("tg"),inp(tv,setTv,"100")),
-        e("div",{style:{flex:"1 1 40%"}},lab("cp"),inp(cv,setCv,"")),
-        e("div",{style:{flex:"0 0 22%"}},lab("mn"),inp(mv,setMv,"30"))),
-      e("div",{style:{display:"flex",gap:"8px",marginBottom:"7px"}},
-        e("div",{style:{flex:"1 1 30%"}},lab("hr"),inp(hv,setHv,"6.5")),
-        e("div",{style:{flex:"1 1 25%"}},lab("rk"),inp(rv,setRv,"1")),
-        e("div",{style:{flex:"1 1 40%"}},lab("dc"),inp(dv,setDv,""))),
-      e("div",{"data-testid":"goal-auto",role:"checkbox","aria-checked":au?"true":"false",onClick:()=>setAu(!au),style:{display:"flex",gap:"9px",alignItems:"center",fontSize:"11px",color:T.gray1,fontFamily:"monospace",marginBottom:"7px",cursor:"pointer"}},
-        e("span",{style:{flex:"0 0 22px",width:"22px",height:"22px",boxSizing:"border-box",border:"2px solid "+(au?T.green:T.gray2),background:au?T.green+"33":"transparent",color:T.green,borderRadius:"5px",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:"15px",fontWeight:"900",lineHeight:1}},au?"✓":""),tx("au")),
+      e("div",{style:{marginBottom:"7px"}},e("div",{style:{fontSize:"11px",color:T.gray1,fontFamily:"monospace",marginBottom:"4px",fontWeight:"800"}},tx("tg30")),inp(tv,setTv,"100")),
+      AUTO&&e("div",{style:{fontSize:"10.4px",color:T.gray1,fontFamily:"monospace",lineHeight:1.5,marginBottom:"7px",direction:"ltr",textAlign:rtl?"right":"left"}},AUTO),
+      e("div",{onClick:()=>setAdv(!adv),style:{fontSize:"10.5px",color:T.cyan,fontFamily:"monospace",cursor:"pointer",marginBottom:"7px",fontWeight:"800"}},(adv?"▾ ":"▸ ")+tx("adv")),
+      adv&&e("div",null,
+        e("div",{style:{display:"flex",gap:"8px",marginBottom:"7px"}},
+          e("div",{style:{flex:"1 1 40%"}},lab("cp"),inp(cv,setCv,String(aCap||""))),
+          e("div",{style:{flex:"0 0 22%"}},lab("mn"),inp(mv,setMv,"30")),
+          e("div",{style:{flex:"1 1 30%"}},lab("hr"),inp(hv,setHv,"6.5"))),
+        e("div",{style:{display:"flex",gap:"8px",marginBottom:"7px"}},
+          e("div",{style:{flex:"1 1 30%"}},lab("rk"),inp(rv,setRv,"1")),
+          e("div",{style:{flex:"1 1 60%"}},lab("dc"),inp(dv,setDv,String(aDay||"")))),
+        e("div",{"data-testid":"goal-auto",role:"checkbox","aria-checked":au?"true":"false",onClick:()=>setAu(!au),style:{display:"flex",gap:"9px",alignItems:"center",fontSize:"11px",color:T.gray1,fontFamily:"monospace",marginBottom:"7px",cursor:"pointer"}},
+        e("span",{style:{flex:"0 0 22px",width:"22px",height:"22px",boxSizing:"border-box",border:"2px solid "+(au?T.green:T.gray2),background:au?T.green+"33":"transparent",color:T.green,borderRadius:"5px",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:"15px",fontWeight:"900",lineHeight:1}},au?"✓":""),tx("au"))),
       DM&&e("div",{style:{fontSize:"10.8px",color:T.cyan,fontFamily:"monospace",lineHeight:1.45,marginBottom:"7px",direction:"ltr",textAlign:rtl?"right":"left"}},DM),
       F&&e("div",{style:{fontSize:"10.5px",color:F.enough?T.gray1:T.gray2,fontFamily:"monospace",lineHeight:1.45,marginBottom:"7px"}},
         F.enough?tx("feas").replace("{n}",F.n).replace("{p}",Math.round(F.share*100)).replace("{m}",F.med.toFixed(2)):tx("nof").replace("{n}",F.n)),
