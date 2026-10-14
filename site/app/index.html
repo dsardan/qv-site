@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.165</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.166</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.165";
+const QE_VERSION = "15.12.166";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -6884,18 +6884,22 @@ var QESup=(function(){
       if(S.mktOpen && p.pxAge>10*MIN && stale<4){ stale++; add("stale_px","warn",{tk:p.tk,min:Math.round(p.pxAge/MIN)},{type:"refreshQuote",tk:p.tk}); }
       if(p.th && !p.manual && !p.scalp){
         if(!(p.stop>0)) add("no_stop","warn",{tk:p.tk},{type:"setStop",tk:p.tk});
-        var sg=p.qty>0?1:-1; if(p.target>0 && sg*(p.target-p.avg)<=0) add("bad_target","warn",{tk:p.tk},{type:"setTarget0",tk:p.tk}); } }
+        var sg=p.qty>0?1:-1; if(p.target>0 && sg*(p.target-p.avg)<=0) add("bad_target","warn",{tk:p.tk},{type:"setTarget0",tk:p.tk}); }
+      if(p.th && !p.manual && p.scalp && !(p.stop>0)) add("scalp_no_stop","warn",{tk:p.tk},{type:"setScalpStop",tk:p.tk}); }
     if(S.mktOpen && S.candN===0 && S.candAge>5*MIN) add("cand_empty","warn",{min:Math.round(S.candAge/MIN)},{type:"forceScan"});
     else if(S.mktOpen && S.eq>0 && S.cash/S.eq>0.5 && !S.ddHalt && S.nSwing<S.maxPos && now-(S.lastTradeTs||0)>90*MIN && S.candAge>10*MIN) add("idle_cash","info",{pct:Math.round(S.cash/S.eq*100),min:Math.round((now-(S.lastTradeTs||0))/MIN)},{type:"forceScan"});
     if(S.scalp && S.scalp.on && S.usSession){ if(S.scalp.lastTs>0 && now-S.scalp.lastTs>10*MIN && S.lastEnd>0 && now-S.lastEnd<5*MIN) add("scalp_stall","warn",{min:Math.round((now-S.scalp.lastTs)/MIN)},{type:"clearScalpCache"});
       else if(S.scalp.haveSpan20 && S.scalp.scannedDelta20===0) add("scalp_stall","warn",{min:20},{type:"clearScalpCache"}); }
+    if(S.scalp && S.scalp.n50>=30 && S.scalp.sum50<0 && S.scalp.pf50<0.7) add("scalp_edge","info",{n:S.scalp.n50,sum:Math.round(S.scalp.sum50),pf:S.scalp.pf50},null);
     if(S.cash<-1) add("cash_neg","crit",{cash:Math.round(S.cash)},null);
     if(S.eq>0 && S.gross>2*S.eq*1.02) add("margin","crit",{gross:Math.round(S.gross/S.eq*100)},null);
     if(S.errors10>=10) add("errors","warn",{n:S.errors10,top:S.errTop||""},null);
     return F; }
   /* the fix a position-level finding needs (pure, so it can be tested): never closer than 3 % to the current price (room to breathe, no instant exit) */
   function stopFor(sg,entry,px){ return sg>0?+Math.min(entry*0.96,px*0.97).toFixed(4):+Math.max(entry*1.04,px*1.03).toFixed(4); }
-  return {audit:audit,stopFor:stopFor};
+  /* scalp stop when a scalp position has none: 0.6 % (crypto 0.9 %) from ENTRY, as the scalper itself uses (tight; the price may already be beyond it -> it exits like any stop) */
+  function scalpStopFor(sg,entry,crypto){ var pc=crypto?0.009:0.006; return +(entry*(1-sg*pc)).toFixed(4); }
+  return {audit:audit,stopFor:stopFor,scalpStopFor:scalpStopFor};
 })();
 try{ window.QESup=QESup; }catch(e){}
 
@@ -13392,6 +13396,8 @@ const I18N = {
   sup_f_bad_target:{ru:"{tk}: цель по неверную сторону входа",he:"{tk}: יעד בצד שגוי של הכניסה",en:"{tk}: target on the wrong side of the entry"},
   sup_f_cand_empty:{ru:"Пул кандидатов пуст {min} мин",he:"מאגר המועמדים ריק {min} דק׳",en:"Candidate pool empty for {min} min"},
   sup_f_idle_cash:{ru:"Свободно {pct}% капитала, сделок нет {min} мин",he:"{pct}% מההון פנוי, אין עסקאות {min} דק׳",en:"{pct}% of capital idle, no trades for {min} min"},
+  sup_f_scalp_no_stop:{ru:"{tk}: у скальпа нет стопа",he:"{tk}: לסקאלפ אין סטופ",en:"{tk}: scalp has no stop-loss"},
+  sup_f_scalp_edge:{ru:"Скальпинг: последние {n} сделок {sum}$, PF {pf} — преимущества нет",he:"סקאלפינג: {n} העסקאות האחרונות {sum}$, PF {pf} — אין יתרון",en:"Scalping: last {n} trades {sum}$, PF {pf} — no edge"},
   sup_f_scalp_stall:{ru:"Скальпинг не сканирует {min} мин",he:"הסקאלפינג לא סורק {min} דק׳",en:"Scalping not scanning for {min} min"},
   sup_f_cash_neg:{ru:"Отрицательный кэш: {cash}",he:"מזומן שלילי: {cash}",en:"Negative cash: {cash}"},
   sup_f_margin:{ru:"Валовая экспозиция {gross}% капитала (выше лимита)",he:"חשיפה ברוטו {gross}% מההון (מעל המגבלה)",en:"Gross exposure {gross}% of equity (over the limit)"},
@@ -19456,6 +19462,7 @@ function App(){
       if(ty==="refreshQuote"){ const q=await _vxQuote(f.tk,{force:true}); if(q&&q.price>0){ if(ctx.pm) ctx.pm[f.tk]=q.price; window.__supPx=window.__supPx||{}; window.__supPx[f.tk]={px:q.price,ts:Date.now()}; return {note:f.tk+" @ "+q.price}; } return {note:f.tk+": still no quote",fail:true}; }
       if(ty==="forceScan"){ vxCandRef.current={ts:0,list:[],via:"none"}; vxEvalRef.current={}; if(!ctx.inSession && !vxLockRef.current && vxPlayRef.current) vxPlayRef.current(); return {note:"candidate pool cleared -> fresh scan"}; }
       if(ty==="clearScalpCache"){ window.__scBars={}; window.__scSeen={}; const S0=_scLoad(); S0.rr=0; _scSave(S0); return {note:"scalp bar cache + seen-bar memo cleared"}; }
+      if(ty==="setScalpStop"){ const mem0=ctx.mem||_loadAi(); const th=mem0.open&&mem0.open[f.tk]; if(!th||!th.scalp) return null; const p=(ctx.acct.positions||[]).find(x=>x.ticker===f.tk); if(!p) return null; const old=th.stop||0; const ns=QESup.scalpStopFor(p.qty>0?1:-1,p.avg,_isCryptoTk(f.tk)); th.stop=ns; try{ _saveAi(mem0); }catch(_e){} return {note:f.tk+" scalp stop "+old+" -> "+ns,undo:{tk:f.tk,field:"stop",old:old}}; }
       if(ty==="setStop"||ty==="setTarget0"){ if(!ctx.mem||!ctx.inSession) return null; const th=ctx.mem.open&&ctx.mem.open[f.tk]; if(!th) return null; const p=(ctx.acct.positions||[]).find(x=>x.ticker===f.tk); if(!p) return null; const px=(ctx.px&&ctx.px[f.tk])||p.avg;
         if(ty==="setStop"){ const old=th.stop||0; const ns=QESup.stopFor(p.qty>0?1:-1,p.avg,px); th.stop=ns; if(!(th.stop0>0)) th.stop0=ns; return {note:f.tk+" stop "+old+" -> "+ns,undo:{tk:f.tk,field:"stop",old:old}}; }
         const old=th.target||0; th.target=0; return {note:f.tk+" target "+old+" -> default",undo:{tk:f.tk,field:"target",old:old}}; }
@@ -19471,7 +19478,7 @@ function App(){
     return {now:now,mktOpen:QEHours.isOpen(exch),usSession:usSession,auto:vxAutoRef.current,online:navigator.onLine!==false,lastEnd:window.__vxLastEnd||0,lockedSince:vxLockRef.current?(window.__vxLockedAt||now):0,
       hostsDown:(window.QVHostsDown&&window.QVHostsDown())||[],dataDownUntil:window.__vxDataDownUntil||0,cash:acct.cash,eq:eq,gross:gross,candAge:(vxCandRef.current&&vxCandRef.current.ts>0)?now-vxCandRef.current.ts:0,candN:(vxCandRef.current&&vxCandRef.current.list)?vxCandRef.current.list.length:0,
       lastTradeTs:ai.length?ai[ai.length-1].ts:0,nSwing:positions.filter(x=>!x.scalp).length,maxPos:(MXv>=1&&MXv<=100)?MXv:10,ddHalt:!!(window.__ctl&&window.__ctl.dayDD<=-ddLim),
-      scalp:{on:!!scalpOnRef.current&&_scPct()>0,lastTs:S0.ts||0,haveSpan20:haveSpan20,scannedDelta20:delta<0?1:delta},errors10:errs,errTop:top,positions:positions}; };
+      scalp:(()=>{ const sh=(S0.hist||[]).filter(x=>x&&x.net!=null).slice(-50); let gp=0,gl=0,sm=0; sh.forEach(x=>{ sm+=x.net; if(x.net>0) gp+=x.net; else gl+=-x.net; }); return {on:!!scalpOnRef.current&&_scPct()>0,lastTs:S0.ts||0,haveSpan20:haveSpan20,scannedDelta20:delta<0?1:delta,n50:sh.length,sum50:sm,pf50:+(gl>0?gp/gl:(gp>0?9:0)).toFixed(2)}; })(),errors10:errs,errTop:top,positions:positions}; };
   const _supRun=async(acct,mem,pm,inSession,manual)=>{ const mode=_supMode(); if(mode==="off"&&!manual){ try{ setVxSup(null); }catch(e){} try{ if(Date.now()-(window.__repTs||0)>45000){ window.__repTs=Date.now(); _repUpdate(acct,mem,pm); } }catch(e){} return []; }
     let F=[]; try{ F=QESup.audit(_supSnap(acct,mem,pm)); }catch(e){ try{ window.QEVXLog.err("sup.audit",e); }catch(_){} return []; }
     const nowT=Date.now(); window.__supSeen=window.__supSeen||{};
@@ -19800,6 +19807,7 @@ function App(){
           const capCash=dir>0?(acct.cash-0.05*eq):Infinity;
           let notional=Math.min(free, bucket/MAXS, capCash, 0.003*eq/(sg.stopPct/100))*szMult; let qty=Math.floor(notional/px); const lot=window.QEFx.lot(tk); if(lot>1) qty=Math.floor(qty/lot)*lot;
           if(qty<1){ skip("no_cash"); continue; }
+          { const G=_scGate(acct,mem,pm,tk,dir,px,sg.stopPct,qty); if(G.block){ skip("ctl_"+G.block); _scGateLog(tk,G); continue; } if(G.qty!==qty){ _scGateLog(tk,G,qty,G.qty); qty=G.qty; } }
           const fee1=_vxFeeFor(qty,px), expUsd=qty*px*sg.targetPct/100; if(!(expUsd>=4*fee1)){ skip("fee_edge"); continue; }
           const r=_vxApplyF(acct,dir>0?"buy":"sell",tk,qty,px,fee1,"ai",{scalp:true});
           if(!r.ok){ skip(r.error||"apply"); continue; }
@@ -19846,11 +19854,20 @@ function App(){
   const _tbClose=(tk,px,why)=>{ const acct=_tbAcct(); if(!acct) return null; const p=acct.positions.find(x=>x.ticker===tk&&x.qty!==0); if(!p) return null; const sd=p.qty>0?1:-1; const mem=_loadAi(); const th=mem.open&&mem.open[tk]; const q=Math.abs(p.qty); const openTs=p.openTs||(th&&th.ts)||Date.now();
     let r; try{ r=_vxApply(acct,sd>0?"sell":"buy",tk,q,px,_vxFeeFor(q,px,tk),"ai",{limitMin:0,reason:"scalp_"+why,openTs:openTs,scalp:true}); }catch(e){ r={ok:false}; } if(!r.ok) return null;
     _saveVX(r.acct); setVxPrices(prev=>({...prev,[tk]:px})); if(th){ delete mem.open[tk]; _saveAi(mem); } _tbRecord(r,tk,sd,why,(Date.now()-openTs)/1000*1); return {net:r.net,sd:sd}; };
+  /* vc613: the CONTROLLER (QECtl) now gates SCALP entries as it gates swing entries: net-exposure block, scalp size multiplier (defense / drawdown / vol / chop) and the risk-budget ("heat") fit. Returns {block} or {qty} */
+  const _scGate=(acct,mem,pm,tk,dir,px,stopPct,qty)=>{ try{ if(!_ctlOn()) return {qty:qty}; const CT=_ctlCalc(acct,mem,pm); if(!CT) return {qty:qty}; const cr=_isCryptoTk(tk);
+      const g=QECtl.entry(CT,dir,false); if(g.block) return {block:g.reason,CT:CT};
+      let q=qty; const mm=CT.scalpMult; if(mm>0&&mm<1) q=cr?Math.floor(q*mm*1e6)/1e6:Math.floor(q*mm);
+      const mx=QECtl.fit(CT,px,stopPct,cr); if(cr?(mx*px<10):(mx<1)) return {block:"heat",CT:CT}; q=Math.min(q,mx);
+      if(cr?(q*px<10):(q<1)) return {block:"size",CT:CT}; return {qty:q,CT:CT,mult:mm}; }catch(e){ return {qty:qty}; } };
+  const _scGateLog=(tk,G,q0,q1)=>{ try{ const k=tk+":"+(G.block||"size"); window.__scGL=window.__scGL||{}; const n=Date.now(); if(n-(window.__scGL[k]||0)<300000) return; window.__scGL[k]=n;
+      if(G.block) window.QEVXLog.log("INFO","ctl.block "+tk,{why:G.block,scalp:true,mode:G.CT&&G.CT.mode,heat:G.CT&&G.CT.heat,cap:G.CT&&G.CT.heatCap}); else window.QEVXLog.log("INFO","ctl.size "+tk,{from:q0,to:q1,scalp:true,mode:G.CT&&G.CT.mode,mult:G.mult}); }catch(e){} };
   const _tbOpen=(tk,dir,px,m)=>{ const acct=_tbAcct(); if(!acct||!(px>0)) return false; if(acct.positions.some(p=>p.ticker===tk&&p.qty!==0)) return false; const mem=_loadAi(); const pm={...vxPricesRef.current}; pm[tk]=px;
     const eq=_vxEquity(acct,pm).equity; const pct=_scPct(); if(!(pct>0)||!(eq>0)) return false; const bucket=pct/100*eq; let used=0,nS=0; acct.positions.forEach(p=>{ const th=mem.open&&mem.open[p.ticker]; if(th&&th.scalp&&p.qty!==0){ used+=Math.abs(p.qty)*p.avg; if(_isCryptoTk(p.ticker)===_isCryptoTk(tk)) nS++; } });
     const MAXT=TB().maxT; if(nS>=MAXT) return false; const free=bucket-used; if(!(free>100)) return false;
     const CR=_isCryptoTk(tk); const stopPct=CR?Math.min(0.8,Math.max(0.3,4*m.band)):Math.min(0.5,Math.max(0.12,4*m.band)); const capCash=dir>0?(acct.cash-0.05*eq):Infinity; const tpPct=CR?0.9:0.6;   /* crypto: wider stop/target to clear the 0.10 %/side fee */
     let notional=Math.min(free,bucket/MAXT,capCash,0.003*eq/(stopPct/100)); let qty=CR?Math.floor(notional/px*1e6)/1e6:Math.floor(notional/px); let lot=1; try{ lot=window.QEFx.lot(tk)||1; }catch(e){} if(lot>1) qty=Math.floor(qty/lot)*lot; if(CR?(qty*px<10):(qty<1)) return false;
+    { const G=_scGate(acct,mem,pm,tk,dir,px,stopPct,qty); if(G.block){ _scGateLog(tk,G); return false; } if(G.qty!==qty){ _scGateLog(tk,G,qty,G.qty); qty=G.qty; } }
     const fee=_vxFeeFor(qty,px,tk); const r=_vxApply(acct,dir>0?"buy":"sell",tk,qty,px,fee,"ai",{scalp:true}); if(!r.ok) return false;
     _saveVX(r.acct); mem.open=mem.open||{}; const nowT=Date.now();
     mem.open[tk]={side:dir>0?"long":"short",conf:null,entryPrice:px,qty:qty,ts:nowT,target:+(px*(1+dir*tpPct/100)).toFixed(4),stop:+(px*(1-dir*stopPct/100)).toFixed(4),limitMin:60,scalp:true,turbo:true,pk:0,signs:null,plan:{rr:null,src:{t:"turbo",s:"micro"},tp:tpPct,sp:+stopPct.toFixed(3)},scalpSig:{atr:null,tp:tpPct,sp:+stopPct.toFixed(3),mom:+m.mv.toFixed(3)}};
