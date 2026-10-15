@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.173</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.174</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.173";
+const QE_VERSION = "15.12.174";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -1600,6 +1600,26 @@ async function _fetchFree(symbol){
 // It now routes through the ACTIVE provider; if a paid provider fails (bad key, quota,
 // outage) it transparently falls back to the free source so the app never goes dark.
 /* vc579: Binance spot market data for the CRYPTO exchange (public, keyless REST). Yahoo "-USD" stays as the fallback when Binance is unreachable/geo-blocked. */
+/* ============ QEBook (vc620) - order-book methods for scalping (pure) ============
+   Inputs: best bid/ask + sizes (Binance bookTicker). ofi(): Cont-Kukanov-Stoikov (2014) order-flow-imbalance event e_n; imbalance: queue imbalance (B-A)/(B+A);
+   view(): spread (bp), queue imbalance, OFI over 10 s/30 s normalised by the average top-of-book size. gate(): enter only if the book SUPPORTS the direction. */
+var QEBook=(function(){
+  function ofi(p,c){ return (c.b>=p.b?c.B:0)-(c.b<=p.b?p.B:0)-(c.a<=p.a?c.A:0)+(c.a>=p.a?p.A:0); }
+  function push(bk,c,t){ var o=bk||{last:null,buckets:[]}; if(o.last){ var e=ofi(o.last,c), sec=Math.floor(t/1000), bu=o.buckets, l=bu[bu.length-1]; if(!l||l.s!==sec){ l={s:sec,e:0,q:0,n:0}; bu.push(l); if(bu.length>70) bu.shift(); } l.e+=e; l.q+=(c.B+c.A); l.n++; }
+    o.last={b:c.b,B:c.B,a:c.a,A:c.A,t:t}; return o; }
+  function win(o,now,secs){ var s0=Math.floor(now/1000)-secs, e=0, q=0, n=0; for(var i=0;i<o.buckets.length;i++){ var b=o.buckets[i]; if(b.s>=s0){ e+=b.e; q+=b.q; n+=b.n; } } return {e:e,avg:n?q/n:0,n:n}; }
+  function view(o,now){ now=now||Date.now(); if(!o||!o.last) return null; var L=o.last, mid=(L.a+L.b)/2, tot=L.B+L.A; var w10=win(o,now,10), w30=win(o,now,30);
+    return {age:now-L.t, spreadBp:mid>0?(L.a-L.b)/mid*1e4:null, imb:tot>0?(L.B-L.A)/tot:0, ofi10:w10.avg>0?w10.e/w10.avg:0, ofi30:w30.avg>0?w30.e/w30.avg:0, n10:w10.n}; }
+  /* dir=+1 long / -1 short. soft: no/stale book -> allowed (never blocks on missing data). */
+  function gate(v,dir,opt){ opt=opt||{}; var maxSp=opt.maxSpreadBp||4, minImb=opt.minImb!=null?opt.minImb:0.1, maxAge=opt.maxAgeMs||3000;
+    if(!v||v.age>maxAge||v.n10<3) return {block:false,why:"no_book",bk:v||null};
+    if(v.spreadBp!=null&&v.spreadBp>maxSp) return {block:true,why:"wide_spread",bk:v};
+    if(dir*v.imb<minImb) return {block:true,why:"imbalance",bk:v};
+    if(dir*v.ofi10<0) return {block:true,why:"ofi_against",bk:v};
+    return {block:false,why:"ok",bk:v}; }
+  return {ofi:ofi,push:push,view:view,gate:gate};
+})();
+try{ window.QEBook=QEBook; }catch(e){}
 const QEBin=(function(){
   const HOSTS=["data-api.binance.vision","api.binance.com","api.binance.us"];
   const STABLE={USDT:1,USDC:1,FDUSD:1,TUSD:1,BUSD:1,DAI:1,USDP:1,USDD:1,EUR:1,GBP:1,AEUR:1,UST:1,PYUSD:1,XUSD:1,USD1:1};
@@ -1630,6 +1650,7 @@ const QEBin=(function(){
   /* vc581: WebSocket trade stream (wss://stream.binance.com:9443/ws, SUBSCRIBE <pair>@trade). Any quoted pair auto-subscribes; a fresh tick (<4 s) beats REST. */
   const SH0=["wss://data-stream.binance.vision/ws","wss://stream.binance.com:9443/ws","wss://stream.binance.us:9443/ws"];
   const shList=()=>{ const rb=relayBase(); return rb?SH0.concat([rb.replace(/^http/,"ws")+"/ws/binance"]):SH0; };
+  let bWant={}, bSubs={}, books={};
   let ws=null, shIdx=0, sOpen=false, sBackoff=1000, sTimer=null, sOffUntil=0, sFailRun=0, sLast=0, sOpenedAt=0, sSubs={}, sWant={}, ticks={}, sMsgs=0, sOpens=0;
   const wsOn=()=>{ try{ return typeof WebSocket!=="undefined" && localStorage.getItem("qe_bin_ws")!=="0" && on(); }catch(e){ return false; } };
   const sLog=(m)=>{ try{ window.QELog&&window.QELog.info("QEBin",m); }catch(e){} };
@@ -1637,6 +1658,8 @@ const QEBin=(function(){
   function sSync(){ if(!ws||ws.readyState!==1) return; const add=[],del=[];
     Object.keys(sWant).forEach(p=>{ if(!sSubs[p]){ add.push(p.toLowerCase()+"@trade"); sSubs[p]=1; } });
     Object.keys(sSubs).forEach(p=>{ if(!sWant[p]){ del.push(p.toLowerCase()+"@trade"); delete sSubs[p]; delete ticks[p]; } });
+    Object.keys(bWant).forEach(p=>{ if(!bSubs[p]){ add.push(p.toLowerCase()+"@bookTicker"); bSubs[p]=1; } });
+    Object.keys(bSubs).forEach(p=>{ if(!bWant[p]){ del.push(p.toLowerCase()+"@bookTicker"); delete bSubs[p]; delete books[p]; } });
     for(let i=0;i<add.length;i+=50) sSend({method:"SUBSCRIBE",params:add.slice(i,i+50),id:1000+i});
     if(del.length) sSend({method:"UNSUBSCRIBE",params:del,id:9000}); }
   function sRetry(){ clearTimeout(sTimer); sTimer=setTimeout(sOpenWs,sBackoff); sBackoff=Math.min(15000,sBackoff*2); }
@@ -1646,16 +1669,17 @@ const QEBin=(function(){
     if(ws||!wsOn()||!Object.keys(sWant).length) return; if(Date.now()<sOffUntil){ clearTimeout(sTimer); sTimer=setTimeout(sOpenWs,sOffUntil-Date.now()+500); return; }
     let w; const SH=shList(); try{ w=new WebSocket(SH[shIdx%SH.length]); }catch(e){ sFail(); return; }
     ws=w; let opened=false;
-    w.onopen=()=>{ opened=true; sOpen=true; sOpens++; sFailRun=0; sBackoff=1000; sOpenedAt=Date.now(); sLast=Date.now(); sSubs={}; sSync(); if(sOpens===1) sLog("stream connected "+shList()[shIdx%shList().length]); };
-    w.onmessage=(ev)=>{ sLast=Date.now(); sMsgs++; try{ const m=JSON.parse(ev.data); if(m&&m.e==="trade"&&m.s){ const px=+m.p; if(px>0) ticks[m.s]={px:px,ts:Date.now()}; } }catch(e){} };
+    w.onopen=()=>{ opened=true; sOpen=true; sOpens++; sFailRun=0; sBackoff=1000; sOpenedAt=Date.now(); sLast=Date.now(); sSubs={}; bSubs={}; sSync(); if(sOpens===1) sLog("stream connected "+shList()[shIdx%shList().length]); };
+    w.onmessage=(ev)=>{ sLast=Date.now(); sMsgs++; try{ const m=JSON.parse(ev.data); if(m&&m.e==="trade"&&m.s){ const px=+m.p; if(px>0) ticks[m.s]={px:px,ts:Date.now()}; } else if(m&&m.s&&m.u!=null&&m.b!=null&&m.a!=null&&bWant[m.s]){ const c={b:+m.b,B:+m.B,a:+m.a,A:+m.A}; if(c.b>0&&c.a>0) books[m.s]=QEBook.push(books[m.s],c,Date.now()); } }catch(e){} };
     w.onerror=()=>{};
     w.onclose=()=>{ if(ws===w){ ws=null; sOpen=false; if(opened) sRetry(); else sFail(); } };
   }
   function want(p){ sWant[p]=Date.now(); if(Object.keys(sWant).length>150){ let o=null; Object.keys(sWant).forEach(k=>{ if(!o||sWant[k]<sWant[o]) o=k; }); delete sWant[o]; }
     if(!ws){ if(!sTimer) sOpenWs(); } else if(sOpen&&!sSubs[p]) sSync(); }
+  function book(sym){ const p=pair(sym); if(!p) return null; const fresh=!bWant[p]; bWant[p]=Date.now(); want(p); if(fresh&&sOpen) sSync(); return QEBook.view(books[p]); }
   function live(p){ const t=ticks[p]; return (sOpen&&t&&Date.now()-t.ts<4000)?t:null; }
   try{ setInterval(()=>{ try{
-      const now=Date.now(); let ch=false; Object.keys(sWant).forEach(p=>{ if(now-sWant[p]>300000){ delete sWant[p]; ch=true; } }); if(ch) sSync();
+      const now=Date.now(); let ch=false; Object.keys(sWant).forEach(p=>{ if(now-sWant[p]>300000){ delete sWant[p]; ch=true; } }); Object.keys(bWant).forEach(p=>{ if(now-bWant[p]>120000){ delete bWant[p]; ch=true; } }); if(ch) sSync();
       if(ws&&sOpen&&(now-sLast>20000||now-sOpenedAt>23*3600e3)){ try{ ws.close(); }catch(e){} }
       if(!ws&&Object.keys(sWant).length&&now>=sOffUntil&&!sTimer) sOpenWs();
     }catch(e){} },5000); }catch(e){}
@@ -1728,7 +1752,7 @@ const QEBin=(function(){
   /* vc589: the MOST VOLATILE liquid coins (24h range %, >= 20M USDT turnover) - BTC/ETH barely move 6 bp in 30 s, which cannot beat the 0.10 %/side fee */
   function volTop(n){ if(!uni||uni.length<10) return null; const l=uni.filter(x=>x.price>=0.01&&x.qv>=2e7&&x.rng!=null&&isFinite(x.rng)); if(l.length<8) return null; return l.slice().sort((a,b)=>b.rng-a.rng).slice(0,n||16).map(x=>x.base+"-USD"); }
   function refreshIf(ms){ if(!uni||Date.now()-uniTs>(ms||3e5)) return refresh(true); return Promise.resolve(uni); }
-  return { pair, quote, streaming:(sym)=>{ const p=pair(sym); return !!(p&&live(p)); }, watch:(l)=>{ (l||[]).forEach(x=>{ const p=pair(x); if(p) want(p); }); }, wsInfo:()=>({open:sOpen,subs:Object.keys(sSubs).length,msgs:sMsgs,opens:sOpens,off:Date.now()<sOffUntil}), klines, ohlc, intraday, history, refresh, refreshIf, top, volTop, info:()=>({coins:uni?uni.length:0,age:uni?Math.round((Date.now()-uniTs)/1000):null,off:Date.now()<offUntil,err:lastErr}) };
+  return { injectBook:(sym,c)=>{ const p=pair(sym); if(!p) return false; bWant[p]=Date.now(); books[p]=QEBook.push(books[p],c,Date.now()); return true; }, book, pair, quote, streaming:(sym)=>{ const p=pair(sym); return !!(p&&live(p)); }, watch:(l)=>{ (l||[]).forEach(x=>{ const p=pair(x); if(p) want(p); }); }, wsInfo:()=>({open:sOpen,subs:Object.keys(sSubs).length,msgs:sMsgs,opens:sOpens,off:Date.now()<sOffUntil}), klines, ohlc, intraday, history, refresh, refreshIf, top, volTop, info:()=>({coins:uni?uni.length:0,age:uni?Math.round((Date.now()-uniTs)/1000):null,off:Date.now()<offUntil,err:lastErr}) };
 })();
 try{ window.QEBin=QEBin; setTimeout(()=>{ try{ QEBin.refresh(false); }catch(e){} },4000); setInterval(()=>{ try{ QEBin.refresh(false); }catch(e){} },3600e3); }catch(e){}
 
@@ -6874,6 +6898,9 @@ var QEDiag=(function(){
     o.win=W.length/n; o.sum=h.reduce(function(a,x){return a+x.net;},0); o.avgW=W.length?W.reduce(function(a,x){return a+x.net;},0)/W.length:0; o.avgL=L.length?L.reduce(function(a,x){return a+x.net;},0)/L.length:0;
     o.beWin=(o.avgW-o.avgL)>0?(-o.avgL)/(o.avgW-o.avgL):null;   /* win rate needed for zero expectancy with THIS payoff */
     o.exp=o.sum/n; o.byWhy=grp(h,function(x){return x.why||"?";}); o.bySide=grp(h,function(x){return x.side>0?"long":"short";});
+    var wb=h.filter(function(x){return x.bk&&x.bk.why==="ok";}), nb=h.filter(function(x){return !(x.bk&&x.bk.why==="ok");});
+    function gs(a){ var w=a.filter(function(x){return x.net>0;}).length, s=a.reduce(function(t,x){return t+x.net;},0); return {n:a.length,w:a.length?w/a.length:0,sum:s}; }
+    o.book=gs(wb); o.nobook=gs(nb);
     var m=h.filter(function(x){return x.mfe!=null&&x.mae!=null;}); o.nm=m.length;
     if(m.length){ var th=opt.thr||0.35; o.mfeMed=med(m.map(function(x){return x.mfe;})); o.maeMed=med(m.map(function(x){return x.mae;})); o.fwdReach=m.filter(function(x){return x.mfe>=th;}).length/m.length; o.revReach=m.filter(function(x){return x.mae>=th;}).length/m.length; o.thr=th; o.holdMed=med(m.map(function(x){return x.hold||0;})); }
     return o; }
@@ -15529,7 +15556,7 @@ function ScalpDiag(props){
     none:{ru:"Нет закрытых сделок",he:"אין עסקאות סגורות",en:"No closed trades"},
     sm:{ru:"сделок {n} · прибыльных {w}% · ср. плюс {aw} · ср. минус {al} · чтобы выйти в ноль нужно {be}% побед · итого {s}",he:"עסקאות {n} · רווחיות {w}% · רווח ממוצע {aw} · הפסד ממוצע {al} · לאפס נדרשים {be}% ניצחונות · סה״כ {s}",en:"trades {n} · winners {w}% · avg win {aw} · avg loss {al} · breakeven needs {be}% winners · total {s}"},
     mm:{ru:"Ход цены после входа ({m} сделок): медиана максимума в плюс {f}%, в минус {a}%, держали {h} с. Дошли до +{t}%: {fr}% сделок; дошли до −{t}% (обратная сторона заработала бы): {rr}%",he:"תנועת מחיר אחרי כניסה ({m} עסקאות): חציון מקסימום ברווח {f}%, בהפסד {a}%, החזקה {h} שנ׳. הגיעו ל-+{t}%: {fr}%; הגיעו ל-−{t}% (הצד ההפוך היה מרוויח): {rr}%",en:"Price path after entry ({m} trades): median best {f}%, worst {a}%, held {h}s. Reached +{t}%: {fr}%; reached −{t}% (the opposite side would have won): {rr}%"},
-    why:{ru:"По выходам",he:"לפי יציאה",en:"By exit"}, side:{ru:"По сторонам",he:"לפי צד",en:"By side"}, hint:{ru:"Данные хода цены копятся с версии 15.12.173",he:"נתוני מסלול המחיר נצברים מגרסה 15.12.173",en:"Price-path data accumulates from 15.12.173"}};
+    bk:{ru:"Со стаканом (поддержал вход): {a} сделок, {aw}% прибыльных, {as}; без данных стакана: {b} сделок, {bw}% , {bs}",he:"עם ספר הוראות (תמך בכניסה): {a} עסקאות, {aw}% רווחיות, {as}; בלי נתוני ספר: {b} עסקאות, {bw}%, {bs}",en:"With order book (supported entry): {a} trades, {aw}% winners, {as}; without book data: {b} trades, {bw}%, {bs}"}, why:{ru:"По выходам",he:"לפי יציאה",en:"By exit"}, side:{ru:"По сторонам",he:"לפי צד",en:"By side"}, hint:{ru:"Данные хода цены копятся с версии 15.12.174",he:"נתוני מסלול המחיר נצברים מגרסה 15.12.174",en:"Price-path data accumulates from 15.12.174"}};
   const L=(k)=>(X[k][LG]||X[k].en); const fm=(v)=>(v>=0?"+$":"−$")+Math.abs(v).toFixed(2);
   let D={n:0}; try{ D=window.QEDiag.summarize(props.getHist?props.getHist():[]); }catch(_){}
   const fill=(t,o)=>t.replace(/\{(\w+)\}/g,(_,k)=>(o[k]!=null?o[k]:""));
@@ -15540,6 +15567,7 @@ function ScalpDiag(props){
       !D.n?L("none"):[
         e("div",{key:"a","data-testid":"diag-sum"},fill(L("sm"),{n:D.n,w:Math.round(D.win*100),aw:fm(D.avgW),al:fm(D.avgL),be:D.beWin!=null?Math.round(D.beWin*100):"—",s:fm(D.sum)})),
         e("div",{key:"b",style:{marginTop:"4px",fontFamily:"monospace"}},L("why")+": "+grpTxt(D.byWhy)),
+        D.book&&D.book.n?e("div",{key:"bk",style:{fontFamily:"monospace"}},fill(L("bk"),{a:D.book.n,aw:Math.round(D.book.w*100),as:fm(D.book.sum),b:D.nobook.n,bw:Math.round(D.nobook.w*100),bs:fm(D.nobook.sum)})):null,
         e("div",{key:"c",style:{fontFamily:"monospace"}},L("side")+": "+grpTxt(D.bySide)),
         D.nm?e("div",{key:"d",style:{marginTop:"4px"}},fill(L("mm"),{m:D.nm,f:D.mfeMed.toFixed(2),a:D.maeMed.toFixed(2),h:Math.round(D.holdMed),t:D.thr,fr:Math.round(D.fwdReach*100),rr:Math.round(D.revReach*100)})):e("div",{key:"e",style:{marginTop:"4px",color:T.gray1}},L("hint"))]));
 }
@@ -19951,7 +19979,7 @@ function App(){
     return {dir:dir,rv:rv,dev:dev,mv:mv,mv5:mv5,band:band,p:p,score:Math.abs(mv)/band}; };
   const _tbPush=(tk,px)=>{ const R=tbRef.current, now=Date.now(); const b=R.buf[tk]||(R.buf[tk]=[]); b.push({t:now,p:px}); while(b.length&&now-b[0].t>90000) b.shift(); if(b.length>60) b.shift(); return b; };
   const _tbQuote=async(tk)=>{ return await Promise.race([ _vxQuote(tk,{force:true}), new Promise(res=>setTimeout(()=>res(null),4500)) ]); };
-  const _tbRecord=(r,tk,sd,why,heldS,th0)=>{ try{ const S=_scLoad(); S.hist=(S.hist||[]).concat([{ts:Date.now(),tk:tk,net:+r.net.toFixed(2),why:why,side:sd,turbo:1,mfe:th0?(th0.pk||0):undefined,mae:th0?(th0.mae||0):undefined,hold:Math.round(heldS||0),sp:th0&&th0.scalpSig?th0.scalpSig.sp:undefined}]).slice(-150); S.w=(S.w||[]).concat([r.net]).slice(-20); S.dayPnl=+((S.dayPnl||0)+r.net).toFixed(2); S.dayN=(S.dayN||0)+1; _scSave(S); const R=tbRef.current; R.n++; R.net+=r.net; try{ window.QEVXLog.log("INFO","scalp.exit "+tk,{act:why,side:sd>0?"long":"short",net:+r.net.toFixed(2),held:+(heldS/60).toFixed(2),turbo:true}); }catch(e){} setVxMsg("⚡ "+(r.net>=0?"✓ ":"✕ ")+tk+" "+_vxUSD(r.net,true)); }catch(e){} };
+  const _tbRecord=(r,tk,sd,why,heldS,th0)=>{ try{ const S=_scLoad(); S.hist=(S.hist||[]).concat([{ts:Date.now(),tk:tk,net:+r.net.toFixed(2),why:why,side:sd,turbo:1,mfe:th0?(th0.pk||0):undefined,mae:th0?(th0.mae||0):undefined,hold:Math.round(heldS||0),sp:th0&&th0.scalpSig?th0.scalpSig.sp:undefined,bk:th0?th0.bk:undefined}]).slice(-150); S.w=(S.w||[]).concat([r.net]).slice(-20); S.dayPnl=+((S.dayPnl||0)+r.net).toFixed(2); S.dayN=(S.dayN||0)+1; _scSave(S); const R=tbRef.current; R.n++; R.net+=r.net; try{ window.QEVXLog.log("INFO","scalp.exit "+tk,{act:why,side:sd>0?"long":"short",net:+r.net.toFixed(2),held:+(heldS/60).toFixed(2),turbo:true}); }catch(e){} setVxMsg("⚡ "+(r.net>=0?"✓ ":"✕ ")+tk+" "+_vxUSD(r.net,true)); }catch(e){} };
   const _tbClose=(tk,px,why)=>{ const acct=_tbAcct(); if(!acct) return null; const p=acct.positions.find(x=>x.ticker===tk&&x.qty!==0); if(!p) return null; const sd=p.qty>0?1:-1; const mem=_loadAi(); const th=mem.open&&mem.open[tk]; const q=Math.abs(p.qty); const openTs=p.openTs||(th&&th.ts)||Date.now();
     let r; try{ r=_vxApply(acct,sd>0?"sell":"buy",tk,q,px,_vxFeeFor(q,px,tk),"ai",{limitMin:0,reason:"scalp_"+why,openTs:openTs,scalp:true}); }catch(e){ r={ok:false}; } if(!r.ok) return null;
     _saveVX(r.acct); setVxPrices(prev=>({...prev,[tk]:px})); if(th){ delete mem.open[tk]; _saveAi(mem); } _tbRecord(r,tk,sd,why,(Date.now()-openTs)/1000*1,th); return {net:r.net,sd:sd}; };
@@ -19999,22 +20027,23 @@ function App(){
       { const DDv=parseFloat(localStorage.getItem("qe_vx_ddlim")), LIM=(DDv>=0&&DDv<=20)?DDv:2; if(LIM>0 && CT.dayDD<=-LIM) return {block:"day_limit",CT:CT}; }   /* account day-loss limit: the controller stops NEW scalps too */
       const g=QECtl.entry(CT,dir,false); if(g.block) return {block:g.reason,CT:CT};
       { const TG=QETrend.gate(tk,dir,px,!slow); if(TG.block) return {block:"counter_trend",CT:CT,TR:TG.tr}; }   /* vc615: falling -> only short, rising -> only long */
+      let BKs=null; if(!slow && cr){ try{ if(localStorage.getItem("qe_book")!=="0"){ const BV=QEBin.book(tk), BG=QEBook.gate(BV,dir); BKs=BV?{imb:+BV.imb.toFixed(2),ofi:+BV.ofi10.toFixed(2),spr:BV.spreadBp!=null?+BV.spreadBp.toFixed(1):null,why:BG.why}:{why:"no_book"}; if(BG.block) return {block:"book_"+BG.why,CT:CT,BK:BKs}; } }catch(e){} }   /* vc620: order-book gate (spread, queue imbalance, order-flow imbalance must support the direction) */
       let q=qty; const mm=CT.scalpMult; if(mm>0&&mm<1) q=cr?Math.floor(q*mm*1e6)/1e6:Math.floor(q*mm);
       const mx=QECtl.fit(CT,px,stopPct,cr); if(cr?(mx*px<10):(mx<1)) return {block:"heat",CT:CT}; q=Math.min(q,mx);
-      if(cr?(q*px<10):(q<1)) return {block:"size",CT:CT}; return {qty:q,CT:CT,mult:mm}; }catch(e){ return {qty:qty}; } };
+      if(cr?(q*px<10):(q<1)) return {block:"size",CT:CT}; return {qty:q,CT:CT,mult:mm,bk:BKs}; }catch(e){ return {qty:qty}; } };
   const _scGateLog=(tk,G,q0,q1)=>{ try{ const k=tk+":"+(G.block||"size"); window.__scGL=window.__scGL||{}; const n=Date.now(); if(n-(window.__scGL[k]||0)<300000) return; window.__scGL[k]=n;
-      if(G.block) window.QEVXLog.log("INFO","ctl.block "+tk,{why:G.block,scalp:true,tr:G.TR||undefined,mode:G.CT&&G.CT.mode,heat:G.CT&&G.CT.heat,cap:G.CT&&G.CT.heatCap}); else window.QEVXLog.log("INFO","ctl.size "+tk,{from:q0,to:q1,scalp:true,mode:G.CT&&G.CT.mode,mult:G.mult}); }catch(e){} };
+      if(G.block) window.QEVXLog.log("INFO","ctl.block "+tk,{why:G.block,scalp:true,tr:G.TR||undefined,bk:G.BK||undefined,mode:G.CT&&G.CT.mode,heat:G.CT&&G.CT.heat,cap:G.CT&&G.CT.heatCap}); else window.QEVXLog.log("INFO","ctl.size "+tk,{from:q0,to:q1,scalp:true,mode:G.CT&&G.CT.mode,mult:G.mult}); }catch(e){} };
   const _tbOpen=(tk,dir,px,m)=>{ const acct=_tbAcct(); if(!acct||!(px>0)) return false; if(acct.positions.some(p=>p.ticker===tk&&p.qty!==0)) return false; const mem=_loadAi(); const pm={...vxPricesRef.current}; pm[tk]=px;
     const eq=_vxEquity(acct,pm).equity; const pct=_scPctC(acct,mem,pm); if(!(pct>0)||!(eq>0)) return false; const bucket=pct/100*eq; let used=0,nS=0; acct.positions.forEach(p=>{ const th=mem.open&&mem.open[p.ticker]; if(th&&th.scalp&&p.qty!==0){ used+=Math.abs(p.qty)*p.avg; if(_isCryptoTk(p.ticker)===_isCryptoTk(tk)) nS++; } });
     const MAXT=TB().maxT; if(nS>=MAXT) return false; const free=bucket-used; if(!(free>100)) return false;
     const CR=_isCryptoTk(tk); const stopPct=CR?Math.min(1.0,Math.max(0.6,4*m.band)):Math.min(0.5,Math.max(0.12,4*m.band)); const capCash=dir>0?(acct.cash-0.05*eq):Infinity; const tpPct=CR?+(2.5*stopPct).toFixed(2):0.6;   /* vc619: crypto stop 0.6-1.0 % (0.3 % was inside the noise + 0.20 % fees), target 2.5R - the old 0.3/0.9 payoff needed ~90 % winners */   /* crypto: wider stop/target to clear the 0.10 %/side fee */
     let notional=Math.min(free,bucket/MAXT,capCash,0.003*eq/(stopPct/100)); let qty=CR?Math.floor(notional/px*1e6)/1e6:Math.floor(notional/px); let lot=1; try{ lot=window.QEFx.lot(tk)||1; }catch(e){} if(lot>1) qty=Math.floor(qty/lot)*lot; if(CR?(qty*px<10):(qty<1)) return false;
-    { const G=_scGate(acct,mem,pm,tk,dir,px,stopPct,qty); if(G.block){ _scGateLog(tk,G); return false; } if(G.qty!==qty){ _scGateLog(tk,G,qty,G.qty); qty=G.qty; } }
+    let BKv=null; { const G=_scGate(acct,mem,pm,tk,dir,px,stopPct,qty); if(G.block){ _scGateLog(tk,G); return false; } BKv=G.bk||null; if(G.qty!==qty){ _scGateLog(tk,G,qty,G.qty); qty=G.qty; } }
     const fee=_vxFeeFor(qty,px,tk); const r=_vxApply(acct,dir>0?"buy":"sell",tk,qty,px,fee,"ai",{scalp:true}); if(!r.ok) return false;
     _saveVX(r.acct); mem.open=mem.open||{}; const nowT=Date.now();
-    mem.open[tk]={side:dir>0?"long":"short",conf:null,entryPrice:px,qty:qty,ts:nowT,target:+(px*(1+dir*tpPct/100)).toFixed(4),stop:+(px*(1-dir*stopPct/100)).toFixed(4),limitMin:60,scalp:true,turbo:true,pk:0,signs:null,plan:{rr:null,src:{t:"turbo",s:"micro"},tp:tpPct,sp:+stopPct.toFixed(3)},scalpSig:{atr:null,tp:tpPct,sp:+stopPct.toFixed(3),mom:+m.mv.toFixed(3)}};
+    mem.open[tk]={side:dir>0?"long":"short",conf:null,entryPrice:px,qty:qty,ts:nowT,target:+(px*(1+dir*tpPct/100)).toFixed(4),stop:+(px*(1-dir*stopPct/100)).toFixed(4),limitMin:60,scalp:true,turbo:true,bk:BKv,pk:0,signs:null,plan:{rr:null,src:{t:"turbo",s:"micro"},tp:tpPct,sp:+stopPct.toFixed(3)},scalpSig:{atr:null,tp:tpPct,sp:+stopPct.toFixed(3),mom:+m.mv.toFixed(3)}};
     _saveAi(mem); setVxPrices(prev=>({...prev,[tk]:px}));
-    try{ window.QEVXLog.log("INFO","scalp.entry "+tk,{side:dir>0?"long":"short",qty:qty,px:px,stop:mem.open[tk].stop,sp:+stopPct.toFixed(3),mv:+m.mv.toFixed(3),band:+m.band.toFixed(3),turbo:true,fee:+fee.toFixed(3)}); }catch(e){}
+    try{ window.QEVXLog.log("INFO","scalp.entry "+tk,{side:dir>0?"long":"short",qty:qty,px:px,stop:mem.open[tk].stop,sp:+stopPct.toFixed(3),mv:+m.mv.toFixed(3),band:+m.band.toFixed(3),turbo:true,bk:BKv||undefined,fee:+fee.toFixed(3)}); }catch(e){}
     setVxMsg("⚡ "+(dir>0?"▲ ":"▼ ")+tk+" "+qty+" @ $"+px.toFixed(CR&&px<10?4:2)); try{ const S=_scLoad(); _scPublish(S,r.acct,mem); }catch(e){} return true; };
   const _tbStep=async(h)=>{ const tk=h.tk, C=TB(); const acct0=_tbAcct(); const p0=acct0&&acct0.positions.find(x=>x.ticker===tk&&x.qty!==0); const mem0=_loadAi(); const t0=mem0.open&&mem0.open[tk]; if(!p0||!(t0&&t0.scalp)){ h.alive=false; return; }
     if(!_isCryptoTk(tk)&&!window.QEHours.isOpen(/[.]/.test(tk)?(vxExchRef.current||"US"):"US")){ h.gap=10000; return; }   /* vc578: crypto is always open - switching the picker to a closed exchange must not freeze its trades */
