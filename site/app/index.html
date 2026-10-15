@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.188</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.189</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -508,6 +508,11 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
   function profileSave(user){ var snap={}; PERUSER_KEYS.forEach(function(k){ var v=rawGet(k); if(v!=null) snap[k]=v; }); rawSet(profileKey(user), JSON.stringify(snap)); return snap; }
   function profileLoad(user){ var raw=rawGet(profileKey(user)), snap=null; try{ snap=raw?JSON.parse(raw):null; }catch(e){ snap=null; }
     PERUSER_KEYS.forEach(function(k){ if(snap && snap[k]!=null) rawSet(k,snap[k]); else rawRemove(k); }); return snap; }
+  /* vc635: the snapshot of the user who is CURRENTLY active is a stale duplicate (the live keys hold the newer data; it is rewritten from the live keys the moment this user switches away) -> remove it to free storage (it was 830K). Only when the live data is really there. */
+  function profileDropActive(user){ try{ var k=profileKey(user); if(rawGet(k)==null) return 0; var live=0; PERUSER_KEYS.forEach(function(x){ if(rawGet(x)!=null) live++; }); if(!live) return 0; var n=(rawGet(k)||"").length; rawRemove(k); return n; }catch(e){ return 0; } }
+  /* vc635: caches that are re-downloaded automatically (SEC lists, 13F, large stakes). Dropped only when storage is nearly full, so trading memory / budget / positions can still be saved. */
+  var REFETCH_KEYS=["qe_sec_cik","qe_ticker_name","qe_name_ticker","qe_inst13f","qe_inst_flow","qe_largestakes"];
+  function trimCaches(limitChars){ var st=rawStat(); if(st.chars<limitChars) return null; var freed=0,dropped=[]; REFETCH_KEYS.forEach(function(k){ var v=rawGet(k); if(v!=null){ freed+=v.length; dropped.push(k); rawRemove(k); } }); return {before:st.chars,freed:freed,dropped:dropped}; }
   function profileSwitch(prevUser,nextUser){ if(normUser(prevUser)===normUser(nextUser)) return {switched:false,hadProfile:null};
     profileSave(prevUser); var loaded=profileLoad(nextUser); return {switched:true, hadProfile:(loaded!=null)}; }
 
@@ -524,7 +529,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
     stats:stats, exportAll:exportAll, importAll:importAll, on:on,
     listModules:listModules, exportModule:exportModule, importModule:importModule, toCSV:toCSV, fromCSV:fromCSV,
     exportScoped:exportScoped, importScoped:importScoped,
-    profileSwitch:profileSwitch, profileSave:profileSave, profileLoad:profileLoad, peruserKeys:function(){ return PERUSER_KEYS.slice(); },
+    profileSwitch:profileSwitch, profileDropActive:profileDropActive, trimCaches:trimCaches, profileSave:profileSave, profileLoad:profileLoad, peruserKeys:function(){ return PERUSER_KEYS.slice(); },
     gdPack:gdPack, gdUnpack:gdUnpack, gdDecide:gdDecide,
     raw:{ get:rawGet, set:rawSet, remove:rawRemove, keys:rawKeys, stat:rawStat } };
 })();
@@ -556,7 +561,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.188";
+const QE_VERSION = "15.12.189";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -6227,7 +6232,7 @@ window.QEGOAL=(function(){ var KEY="qe_vx_goal_v1", eqFn=null, openFn=null;
   /* vc632: a deposit / withdrawal / budget reset is NOT profit: shift the window and day baselines by the cash flow, and undo a "hit" that the cash flow itself caused */
   function rebase(delta){ var g=load(); if(!(isFinite(delta))||Math.abs(delta)<1e-9) return; if(g.eq0>0) g.eq0=+(g.eq0+delta).toFixed(2); if(g.day&&g.day.eq0>0) g.day.eq0=+(g.day.eq0+delta).toFixed(2);
     if(g.status==="hit"||g.status==="stop"){ if(g.on) g.status="run"; } if(g.day&&(g.day.done==="hit"||g.day.done==="stop")) g.day.done=null; g.net=0; g.peak=0; g.low=0; g.rebTs=Date.now(); save(g); log("INFO","goal.rebase",{delta:+(+delta).toFixed(2)}); }
-  /* one-time repair (vc632): a budget reset done in 15.12.188 counted as a goal "hit" and halted the AI for the whole day */
+  /* one-time repair (vc632): a budget reset done in 15.12.189 counted as a goal "hit" and halted the AI for the whole day */
   function repair(e){ var g=load(); if(!(e>0)) return false; var ch=false; if(g.day&&(g.day.done==='hit'||g.day.done==='stop')&&g.day.eq0>0&&Math.abs(e-g.day.eq0)>3*dayTarget(g)){ g.day.eq0=e; g.day.done=null; ch=true; } if(g.on&&(g.status==='hit'||g.status==='stop')&&g.eq0>0&&Math.abs(e-g.eq0)>3*(g.target||1)){ g.eq0=e; g.status='run'; g.net=0; g.peak=0; g.low=0; ch=true; } if(ch){ save(g); log('INFO','goal.repair',{eq:+e.toFixed(2)}); } return ch; }
   return {repair:repair,rebase:rebase,load:load,start:start,stop:stop,update:update,halted:halted,mult:mult,feas:feas,dayTarget:dayTarget,setEq:function(f){ eqFn=f; },setOpen:function(f){ openFn=f; }}; })();
 window.QEVXLog=(function(){ var KEY="qe_vxlog_v1", MAX=500;
@@ -10240,13 +10245,14 @@ function largeStakesStale(){
 async function _secFundamentals(ticker, price){
   // ticker → CIK (cached)
   let map=null;
-  try{ const c=window.localStorage.getItem("qe_sec_cik"); if(c) map=JSON.parse(c); }catch(e){}
+  /* vc635: compact cache {v:2,c:{TICKER:cikNumber}} (was {cik:"000..",name} per ticker = 619K); names come from the separate ticker-name cache */
+  try{ const c=window.localStorage.getItem("qe_sec_cik"); if(c){ const o=JSON.parse(c); if(o&&o.v===2&&o.c){ map={}; for(const t in o.c) map[t]={cik:String(o.c[t]).padStart(10,"0"),name:null}; } else if(o){ map=o; const cc={}; for(const t in o){ if(o[t]&&o[t].cik) cc[t]=+o[t].cik; } try{ window.localStorage.setItem("qe_sec_cik", JSON.stringify({v:2,c:cc})); }catch(_){} } } }catch(e){}
   if(!map){
     const r=await smartFetch("https://www.sec.gov/files/company_tickers.json",{cache:"no-store",headers:{"Accept":"application/json"}});
     if(!r.ok) return null;
     const j=await r.json(); map={};
     Object.values(j).forEach(o=>{ if(o&&o.ticker) map[o.ticker.toUpperCase()]={cik:String(o.cik_str).padStart(10,"0"),name:o.title}; });
-    try{ window.localStorage.setItem("qe_sec_cik", JSON.stringify(map)); }catch(e){}
+    try{ const cc={}; for(const t in map) cc[t]=+map[t].cik; window.localStorage.setItem("qe_sec_cik", JSON.stringify({v:2,c:cc})); }catch(e){}
   }
   const ent=map[ticker]; if(!ent) return null;
   const r2=await smartFetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${ent.cik}.json`,{cache:"no-store",headers:{"Accept":"application/json"}});
@@ -10255,7 +10261,7 @@ async function _secFundamentals(ticker, price){
   const G=facts["us-gaap"]||{}, D=facts["dei"]||{};
   const latest=(concept)=>{ try{ const u=concept&&concept.units; if(!u) return null; const arr=u.USD||u.shares||Object.values(u)[0]; if(!arr||!arr.length) return null;
     return arr.filter(x=>x.val!=null&&x.end).sort((a,b)=>new Date(b.end)-new Date(a.end))[0]?.val ?? null; }catch(e){ return null; } };
-  const out={ name:ent.name };
+  const out={ name:ent.name||cachedCompanyName(ticker)||ticker };
   // debt: prefer explicit long-term debt; else total liabilities (labelled honestly)
   let lt=latest(G.LongTermDebt);
   if(lt==null){ const a=latest(G.LongTermDebtNoncurrent), b=latest(G.LongTermDebtCurrent); if(a!=null||b!=null) lt=(a||0)+(b||0); }
@@ -18457,6 +18463,8 @@ function App(){
   const toggleTheme=()=>{ const nx=theme==="light"?"dark":"light"; _applyTheme(nx); setTheme(nx); try{ localStorage.setItem("qe_theme",nx); }catch(e){}
     try{ window.QVStructure&&window.QVStructure.applyTheme&&window.QVStructure.applyTheme(); }catch(e){} };
   const [showMore,setShowMore]=useState(false);
+  /* vc635: storage guard - above ~90% of the ≈5000K limit, drop only the re-downloadable caches so positions / AI memory / budget keep saving */
+  useEffect(()=>{ const chk=()=>{ try{ const c=localStorage.getItem("qe_sec_cik"); if(c&&c.indexOf('"v":2')<0){ const o=JSON.parse(c), cc={}; for(const t in o){ if(o[t]&&o[t].cik) cc[t]=+o[t].cik; } localStorage.setItem("qe_sec_cik",JSON.stringify({v:2,c:cc})); window.QEVXLog&&window.QEVXLog.log("INFO","storage.compact",{key:"qe_sec_cik",beforeK:Math.round(c.length/1024),afterK:Math.round(localStorage.getItem("qe_sec_cik").length/1024)}); } }catch(e){} try{ const r=window.QEDB&&window.QEDB.trimCaches&&window.QEDB.trimCaches(4500*1024); if(r) window.QEVXLog&&window.QEVXLog.log("WARN","storage.trim",{beforeK:Math.round(r.before/1024),freedK:Math.round(r.freed/1024),dropped:r.dropped.join(",")}); }catch(e){} }; const t0=setTimeout(chk,8000); const id=setInterval(chk,10*60000); return ()=>{ clearTimeout(t0); clearInterval(id); }; },[]);
   // ── PHONE LOGIN (OTP via relay → Twilio Verify) ──
   const [authUser,setAuthUser]=useState(()=>{ try{ const s=localStorage.getItem("qe_auth"); return s?JSON.parse(s):null; }catch(e){ return null; } });
   // FULL per-user isolation: swap the whole personal DB when the active user changes, so each
@@ -18465,6 +18473,7 @@ function App(){
   useEffect(()=>{ try{ if(!window.QEDB||!window.QEDB.profileSwitch) return;
     const cur=(authUser&&authUser.phone)?authUser.phone:"guest";
     let prev="guest"; try{ prev=localStorage.getItem("qe_active_user")||"guest"; }catch(e){}
+    try{ if(prev===cur&&window.QEDB.profileDropActive){ const fr=window.QEDB.profileDropActive(cur); if(fr>0) setTimeout(()=>{ try{ window.QEVXLog&&window.QEVXLog.log("INFO","storage.free",{dropped:"profile_snapshot_of_active_user",chars:fr}); }catch(_){} },3000); } }catch(_){}
     if(prev!==cur){ const r=window.QEDB.profileSwitch(prev,cur);
       try{ localStorage.setItem("qe_active_user",cur); }catch(e){}
       if(r&&r.switched){ // refresh the personal React states from the newly-loaded profile
