@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.170</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.171</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.170";
+const QE_VERSION = "15.12.171";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -19786,7 +19786,8 @@ function App(){
       try{ if(_ctlOn()){ const ns=QECtl.ratchet(sd,p.avg,px,th.target,th.stop); if(ns){ const old=th.stop; th.stop=ns; _saveAi(mem); window.QEVXLog.log("INFO","ctl.ratchet "+p.ticker,{side:sd>0?"long":"short",from:old,to:ns,px:px}); } } }catch(e){}
       if(sd*(px-th.target)>=0 && netUsd>0) act="take";
       else if(th.stop>0 && sd*(px-th.stop)<=0) act="cut";
-      else if(netUsd>0 && (()=>{ try{ return QETrend.on()&&QETrend.turned(p.ticker,sd,px); }catch(e){ return false; } })()) act="turn";   /* vc616: price started to move against the scalp - sell, but only in profit */
+      else if((()=>{ try{ if(!QETrend.on()) return false; const tn=QETrend.turned(p.ticker,sd,px); if(tn&&!th.rv){ th.rv=Date.now(); _saveAi(mem); }   /* vc617: a reversal is remembered (latch) */
+        return netUsd>0 && (tn||!!th.rv); }catch(e){ return false; } })()) act="turn";   /* vc616/617: price turned against the scalp - sell at the FIRST moment net profit (after fees) > 0, never at a loss */
       else if(netUsd>0 && (heldM>=(th.limitMin||60) || (et.min>=15*60+50 && !_isCryptoTk(p.ticker)))) act="time";
       try{ const _lk="sm:"+p.ticker; vxWarnedRef.current[_lk]=vxWarnedRef.current[_lk]||0; if(act!=="hold"||nowT-vxWarnedRef.current[_lk]>=300000){ vxWarnedRef.current[_lk]=nowT; window.QEVXLog.log("INFO","scalp.manage "+p.ticker,{side:sd>0?"long":"short",entry:th.entryPrice,px:px,target:th.target,stop:th.stop,held:+heldM.toFixed(1)+"m",net$:+netUsd.toFixed(2),act:act}); } }catch(e){}
       if(act==="hold") continue;
@@ -19925,7 +19926,7 @@ function App(){
     const sd=p.qty>0?1:-1; h.side=sd>0?"long":"short"; const qn=Math.abs(p.qty), exitFee=_vxFeeFor(qn,px,tk); const netUsd=sd*(px-p.avg)*qn-exitFee-(p.fees||0); const fav=sd*(px-p.avg)/p.avg*100; h.fav=+fav.toFixed(3);
     if(fav>(th.pk||0)){ th.pk=+fav.toFixed(4); if(!h.pkSave||now-h.pkSave>15000){ h.pkSave=now; _saveAi(mem); } }
     const heldMs=now-(p.openTs||th.ts||now); const m=_tbMicro(buf,now,_isCryptoTk(tk)); if(m&&(m.rv===-sd||m.dir===-sd)) h.rev++; else h.rev=0;
-    let act=null; if(th.stop>0&&sd*(px-th.stop)<=0) act="cut"; else if(th.target>0&&sd*(px-th.target)>=0&&netUsd>0) act="take"; else if(netUsd>0&&(th.pk||0)>=0.05&&fav<=th.pk*0.55) act="tb_trail"; else if(netUsd>0&&h.rev>=2&&QETrend.on()) act="tb_turn";;   // vc592: no reversal exit — exits only at profit (target/trail) or stop
+    let act=null; if(th.stop>0&&sd*(px-th.stop)<=0) act="cut"; else if(th.target>0&&sd*(px-th.target)>=0&&netUsd>0) act="take"; else if(netUsd>0&&(th.pk||0)>=0.05&&fav<=th.pk*0.55) act="tb_trail"; else if(QETrend.on()&&(h.rev>=2&&!h.rvL?(h.rvL=true,true):h.rvL)&&netUsd>0) act="tb_turn";   /* vc617: reversal latched; sell at first net profit > 0 */;   // vc592: no reversal exit — exits only at profit (target/trail) or stop
     if(!act) return;
     const c=_tbClose(tk,px,act); if(!c) return; h.alive=false;
     tbRef.current.cool[tk]=now+10000;
@@ -20059,7 +20060,7 @@ function App(){
         Object.keys(R.thr).forEach(k=>{ const h=R.thr[k]; if(h.alive&&h.loop&&now-(h.lastRun||now)>60000){ try{ window.QEVXLog.log("WARN","tb.thread.kick "+k,{idleS:Math.round((now-h.lastRun)/1000)}); }catch(e){} h.busy=false; clearTimeout(h.timer); h.timer=setTimeout(h.loop,30); } }); }catch(e){} },10000);
     const wlId=setInterval(getWl,30000);
     document.addEventListener("visibilitychange",onVis); window.addEventListener("online",kick); window.addEventListener("focus",kick); window.addEventListener("pageshow",kick); getWl();
-    window.__tbDebug={guide:()=>tbRef.current.sg,guideReset:()=>{ tbRef.current.sg=null; },scan:_tbScan,micro:(tk)=>{ const b=tbRef.current.buf[tk]; return {m:_tbMicro(b,Date.now(),_isCryptoTk(tk)),n:b&&b.length,span:b&&b.length?Date.now()-b[0].t:0,cool:tbRef.current.cool[tk]||0,watch:tbRef.current.watch}; },state:()=>({thr:Object.keys(tbRef.current.thr).map(k=>({tk:k,alive:tbRef.current.thr[k].alive,side:tbRef.current.thr[k].side})),n:tbRef.current.n,flips:tbRef.current.flips,net:tbRef.current.net,buf:Object.keys(tbRef.current.buf).length,mst:tbRef.current.mst})};
+    window.__tbDebug={guide:()=>tbRef.current.sg,guideReset:()=>{ tbRef.current.sg=null; },scan:_tbScan,micro:(tk)=>{ const b=tbRef.current.buf[tk]; return {m:_tbMicro(b,Date.now(),_isCryptoTk(tk)),n:b&&b.length,span:b&&b.length?Date.now()-b[0].t:0,cool:tbRef.current.cool[tk]||0,watch:tbRef.current.watch}; },setRev:(tk,n)=>{ const h=tbRef.current.thr[tk]; if(h) h.rev=n; return !!h; },setLatch:(tk)=>{ const h=tbRef.current.thr[tk]; if(h) h.rvL=true; return !!h; },state:()=>({thr:Object.keys(tbRef.current.thr).map(k=>({tk:k,alive:tbRef.current.thr[k].alive,side:tbRef.current.thr[k].side,rev:tbRef.current.thr[k].rev,rvL:!!tbRef.current.thr[k].rvL,fav:tbRef.current.thr[k].fav})),n:tbRef.current.n,flips:tbRef.current.flips,net:tbRef.current.net,buf:Object.keys(tbRef.current.buf).length,mst:tbRef.current.mst})};
     return ()=>{ clearInterval(id); clearInterval(wd); clearInterval(wlId); document.removeEventListener("visibilitychange",onVis); window.removeEventListener("online",kick); window.removeEventListener("focus",kick); window.removeEventListener("pageshow",kick); try{ wl.s&&wl.s.release(); }catch(e){} const R=tbRef.current; Object.keys(R.thr).forEach(k=>{ const h=R.thr[k]; h.alive=false; try{ clearTimeout(h.timer); }catch(e){} }); R.thr={}; }; },[authUser&&authUser.phone]);
   const scalpOnRef=useRef(true); scalpOnRef.current=scalpOn;
   useEffect(()=>{ if(!showVX) return; try{ const S=_scLoad(); const mem=_loadAi(); const a=_acctNow()||vxAcct; _scPublish(S,a||{positions:[]},mem); }catch(e){} },[showVX]);
