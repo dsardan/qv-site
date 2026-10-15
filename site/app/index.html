@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.187</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.188</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.187";
+const QE_VERSION = "15.12.188";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -6227,7 +6227,7 @@ window.QEGOAL=(function(){ var KEY="qe_vx_goal_v1", eqFn=null, openFn=null;
   /* vc632: a deposit / withdrawal / budget reset is NOT profit: shift the window and day baselines by the cash flow, and undo a "hit" that the cash flow itself caused */
   function rebase(delta){ var g=load(); if(!(isFinite(delta))||Math.abs(delta)<1e-9) return; if(g.eq0>0) g.eq0=+(g.eq0+delta).toFixed(2); if(g.day&&g.day.eq0>0) g.day.eq0=+(g.day.eq0+delta).toFixed(2);
     if(g.status==="hit"||g.status==="stop"){ if(g.on) g.status="run"; } if(g.day&&(g.day.done==="hit"||g.day.done==="stop")) g.day.done=null; g.net=0; g.peak=0; g.low=0; g.rebTs=Date.now(); save(g); log("INFO","goal.rebase",{delta:+(+delta).toFixed(2)}); }
-  /* one-time repair (vc632): a budget reset done in 15.12.187 counted as a goal "hit" and halted the AI for the whole day */
+  /* one-time repair (vc632): a budget reset done in 15.12.188 counted as a goal "hit" and halted the AI for the whole day */
   function repair(e){ var g=load(); if(!(e>0)) return false; var ch=false; if(g.day&&(g.day.done==='hit'||g.day.done==='stop')&&g.day.eq0>0&&Math.abs(e-g.day.eq0)>3*dayTarget(g)){ g.day.eq0=e; g.day.done=null; ch=true; } if(g.on&&(g.status==='hit'||g.status==='stop')&&g.eq0>0&&Math.abs(e-g.eq0)>3*(g.target||1)){ g.eq0=e; g.status='run'; g.net=0; g.peak=0; g.low=0; ch=true; } if(ch){ save(g); log('INFO','goal.repair',{eq:+e.toFixed(2)}); } return ch; }
   return {repair:repair,rebase:rebase,load:load,start:start,stop:stop,update:update,halted:halted,mult:mult,feas:feas,dayTarget:dayTarget,setEq:function(f){ eqFn=f; },setOpen:function(f){ openFn=f; }}; })();
 window.QEVXLog=(function(){ var KEY="qe_vxlog_v1", MAX=500;
@@ -19135,7 +19135,7 @@ function App(){
       const f=JSON.parse(localStorage.getItem(_fk())||"null")||{fixed:0,perShare:0,pct:0}; vxFeeRef.current={fixed:+f.fixed||0,perShare:+f.perShare||0,pct:+f.pct||0}; setVxFeeRaw({fixed:f.fixed||0,perShare:f.perShare||0,pct:f.pct||0}); }catch(e){} },[authUser&&authUser.phone]);
   const _vxFeeFor=(qty,price,tk)=>{ const f=vxFeeRef.current||{}; let v=Math.max(0,(+f.fixed||0)+(+f.perShare||0)*Math.abs(qty||0)+((+f.pct||0)/100)*Math.abs(qty||0)*(+price||0));
     /* vc577: per-share fees make no sense for fractional coins -> crypto pays at least a percentage fee (qe_vx_cfee %, default 0.10 per side, like a spot exchange taker fee) */
-    try{ if(_isCryptoTk(tk)||(tk==null&&(vxExchRef.current||"US")==="CRYPTO")){ const c=parseFloat(localStorage.getItem("qe_vx_cfee")); const cp=(c>=0&&c<=2)?c:0.10; v=Math.max(v,cp/100*Math.abs(qty||0)*(+price||0)); } }catch(e){} return v; };
+    try{ if(_isCryptoTk(tk)||(tk==null&&(vxExchRef.current||"US")==="CRYPTO")){ const c=parseFloat(localStorage.getItem("qe_vx_cfee")); const cp=(c>=0&&c<=2)?c:0.10; /* vc634: coins pay ONLY a percentage of notional (per-share/fixed stock commissions made 11k DOGE cost $22 = 2.5% per side) */ const nt=Math.abs(qty||0)*(+price||0); v=Math.max(cp,+f.pct||0)/100*nt; } }catch(e){} return v; };
   const _fmtMin=(m)=>{ m=Math.round(m); if(m<60) return m+(LANG==="en"?" min":LANG==="he"?" דק׳":" мин"); if(m<1440){ const h=m/60; return (Number.isInteger(h)?h:h.toFixed(1))+(LANG==="en"?" h":LANG==="he"?" ש׳":" ч"); } const d=m/1440; return (Number.isInteger(d)?d:d.toFixed(1))+(LANG==="en"?" d":LANG==="he"?" ימים":" дн"); };
   useEffect(()=>{ if(!showVX) return; const id=setInterval(()=>setVxNow(Date.now()),5000); return ()=>clearInterval(id); },[showVX]);
   useEffect(()=>{ vxPricesRef.current=vxPrices; try{ for(const k in vxPrices) QETrend.rec(k,vxPrices[k]); }catch(e){} },[vxPrices]);
