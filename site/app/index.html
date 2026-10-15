@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.171</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.172</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.171";
+const QE_VERSION = "15.12.172";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -15507,6 +15507,32 @@ function QfHelp(props){
         P(tx("now")+": "+(st==="ok"?"✓":st==="warn"?"⚠":"✗")+"  "+path+"% "+(base>0?("÷ "+base+"% = ×"+(path/Math.max(1,base)).toFixed(2)):"")+", "+(edge>0?"+":"")+edge+" "+(LG==="en"?"pp":LG==="he"?"נק׳":"п.п."),{color:col,fontWeight:"800"}),
         H("h4"), P("• "+tx("u1")), P("• "+tx("u2")), P("• "+tx("u3")), P("• "+tx("u4"),{color:T.gold}))));
 }
+function H4Box(props){
+  const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const acct=props.acct;
+  const [,setN]=useState(0); const [on,setOn]=useState(()=>{ try{ return localStorage.getItem("qe_h4")==="1"; }catch(_){ return false; } });
+  useEffect(()=>{ const id=setInterval(()=>setN(x=>x+1),5000); return ()=>clearInterval(id); },[]);
+  const X={
+    ttl:{ru:"🐢 Медленный свинг H4 (идея Dragonfly без мартингейла)",he:"🐢 סווינג איטי H4 (רעיון Dragonfly בלי מרטינגייל)",en:"🐢 Slow swing H4 (Dragonfly idea, no martingale)"},
+    on:{ru:"Включить",he:"הפעל",en:"Enable"},
+    ds:{ru:"1 сделка на монету за 4-часовую свечу, только по ясному тренду 1ч/4ч, риск 0,5% капитала, стоп 1,5–5%, цель 2R, без усреднения. Выход только по стопу или в плюсе. Только крипта.",he:"עסקה אחת למטבע לנר של 4 שעות, רק במגמה ברורה 1ש׳/4ש׳, סיכון 0.5% מההון, סטופ 1.5–5%, יעד 2R, בלי מיצוע. יציאה רק בסטופ או ברווח. קריפטו בלבד.",en:"1 trade per coin per 4-hour bar, only with a clear 1h/4h trend, risk 0.5% of equity, stop 1.5–5%, target 2R, no averaging. Exit only at stop or in profit. Crypto only."},
+    cmp:{ru:"Сравнение (закрытые сделки, чистыми):",he:"השוואה (עסקאות סגורות, נטו):",en:"Comparison (closed trades, net):"},
+    h4:{ru:"H4",he:"H4",en:"H4"}, sc:{ru:"Скальпинг",he:"סקאלפינג",en:"Scalping"}, tr:{ru:"сделок",he:"עסקאות",en:"trades"}, wn:{ru:"прибыльных",he:"רווחיות",en:"winning"},
+    none:{ru:"пока нет закрытых сделок",he:"אין עדיין עסקאות סגורות",en:"no closed trades yet"}, op:{ru:"Открыто H4:",he:"פתוחות H4:",en:"Open H4:"}
+  };
+  const L=(k)=>(X[k][LG]||X[k].en);
+  const st=(pref)=>{ let n=0,w=0,sum=0; try{ ((acct&&acct.history)||[]).forEach(h=>{ if(h&&h.net!=null&&String(h.reason||"").indexOf(pref)===0){ n++; if(h.net>0) w++; sum+=h.net; } }); }catch(_){} return {n:n,w:w,sum:sum}; };
+  const a=st("h4_"), b=st("scalp_"); const f=(o)=>o.n?(o.n+" "+L("tr")+" · "+Math.round(o.w/o.n*100)+"% "+L("wn")+" · "+(o.sum>=0?"+":"")+"$"+o.sum.toFixed(2)):L("none");
+  let openH4=[]; try{ const m=window.QEAI?null:null; }catch(_){}
+  const toggle=()=>{ const v=!on; setOn(v); try{ localStorage.setItem("qe_h4",v?"1":"0"); }catch(_){} try{ window.QEVXLog.log("INFO","h4.toggle",{on:v}); }catch(_){} if(v){ try{ window.__h4Tick&&window.__h4Tick(); }catch(_){} } };
+  return e("div",{"data-testid":"h4-box",style:{background:T.bg2,border:`1px solid ${T.border}`,borderRadius:"10px",padding:"10px 12px",margin:"8px 0"}},
+    e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px"}},
+      e("div",{style:{fontSize:"12px",fontWeight:700,color:T.text}},L("ttl")),
+      e("button",{"data-testid":"h4-toggle",onClick:toggle,style:{background:on?T.green:T.bg1,color:on?"#fff":T.text,border:`1px solid ${on?T.green:T.border}`,borderRadius:"8px",padding:"4px 10px",fontSize:"11px",fontWeight:700,cursor:"pointer"}},(on?"✓ ":"")+L("on"))),
+    e("div",{style:{fontSize:"10.5px",color:T.gray1,marginTop:"6px",lineHeight:1.4}},L("ds")),
+    e("div",{style:{fontSize:"10.5px",color:T.text,marginTop:"6px"}},e("b",null,L("cmp"))),
+    e("div",{"data-testid":"h4-cmp",style:{fontSize:"10.5px",color:T.text,marginTop:"2px",fontFamily:"monospace"}},L("h4")+": "+f(a)),
+    e("div",{style:{fontSize:"10.5px",color:T.text,fontFamily:"monospace"}},L("sc")+": "+f(b)));
+}
 function GoalBox(props){
   const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const acct=props.acct; const getEq=props.getEq;
   const [,setN]=useState(0); const [tv,setTv]=useState(""); const [cv,setCv]=useState(""); const [mv,setMv]=useState("30"); const [hv,setHv]=useState("6.5"); const [rv,setRv]=useState("1"); const [dv,setDv]=useState(""); const [au,setAu]=useState(true); const [err,setErr]=useState(""); const [open,setOpen]=useState(true); const [adv,setAdv]=useState(false);
@@ -19893,13 +19919,50 @@ function App(){
   const _tbClose=(tk,px,why)=>{ const acct=_tbAcct(); if(!acct) return null; const p=acct.positions.find(x=>x.ticker===tk&&x.qty!==0); if(!p) return null; const sd=p.qty>0?1:-1; const mem=_loadAi(); const th=mem.open&&mem.open[tk]; const q=Math.abs(p.qty); const openTs=p.openTs||(th&&th.ts)||Date.now();
     let r; try{ r=_vxApply(acct,sd>0?"sell":"buy",tk,q,px,_vxFeeFor(q,px,tk),"ai",{limitMin:0,reason:"scalp_"+why,openTs:openTs,scalp:true}); }catch(e){ r={ok:false}; } if(!r.ok) return null;
     _saveVX(r.acct); setVxPrices(prev=>({...prev,[tk]:px})); if(th){ delete mem.open[tk]; _saveAi(mem); } _tbRecord(r,tk,sd,why,(Date.now()-openTs)/1000*1); return {net:r.net,sd:sd}; };
+  /* ═════ vc618: H4 SLOW-SWING mode (the useful kernel of the Dragonfly cBot, WITHOUT its martingale): ONE trade per coin per 4-hour bar, only with a clear 1h/4h trend, fixed risk (0.5 % of equity), stop 1.5-5 % (volatility), target 2R, break-even ratchet after +1R, NO averaging down. Exits only at stop or net profit. Separate stats vs scalping. Default OFF (qe_h4=1) ═════ */
+  const _h4On=()=>{ try{ return localStorage.getItem("qe_h4")==="1"; }catch(e){ return false; } };
+  const _h4Close=(tk,px,why)=>{ const acct=_tbAcct(); if(!acct) return null; const p=acct.positions.find(x=>x.ticker===tk&&x.qty!==0); if(!p) return null; const sd=p.qty>0?1:-1; const mem=_loadAi(); const th=mem.open&&mem.open[tk]; const q=Math.abs(p.qty); const openTs=p.openTs||(th&&th.ts)||Date.now();
+    let r; try{ r=_vxApply(acct,sd>0?"sell":"buy",tk,q,px,_vxFeeFor(q,px,tk),"ai",{limitMin:0,reason:"h4_"+why,openTs:openTs}); }catch(e){ r={ok:false}; } if(!r.ok) return null;
+    _saveVX(r.acct); setVxPrices(prev=>({...prev,[tk]:px})); if(th){ delete mem.open[tk]; _saveAi(mem); }
+    try{ window.QEVXLog.log("INFO","h4.exit "+tk,{act:why,side:sd>0?"long":"short",px:px,net:r.net}); }catch(e){} return {net:r.net}; };
+  const _h4Tick=async()=>{ if(window.__h4Busy) return; window.__h4Busy=true; try{
+    const now=Date.now()+(window.__h4Skew||0); let acct=_tbAcct(); if(!acct) return; let mem=_loadAi(); mem.open=mem.open||{};
+    for(const p of acct.positions.slice()){ const th=mem.open[p.ticker]; if(!(th&&th.h4)||!p.qty) continue;
+      let px=null; try{ const q=await _tbQuote(p.ticker); if(q&&q.price>0) px=q.price; }catch(e){} if(!(px>0)) continue; QETrend.rec(p.ticker,px);
+      const sd=p.qty>0?1:-1, q=Math.abs(p.qty), net=sd*(px-p.avg)*q-_vxFeeFor(q,px,p.ticker)-(p.fees||0);
+      if(th.r1>0&&!th.be&&sd*(px-p.avg)>=th.r1){ const ns=+(p.avg*(1+sd*0.0035)).toFixed(4); if(sd>0?ns>th.stop:ns<th.stop){ th.stop=ns; th.be=1; _saveAi(mem); try{ window.QEVXLog.log("INFO","h4.be "+p.ticker,{stop:ns}); }catch(e){} } }
+      let act=null; if(th.stop>0&&sd*(px-th.stop)<=0) act="stop"; else if(th.target>0&&sd*(px-th.target)>=0&&net>0) act="take";
+      if(act){ _h4Close(p.ticker,px,act); acct=_tbAcct()||acct; mem=_loadAi(); mem.open=mem.open||{}; } }
+    if(!_h4On()) return;
+    const BAR=4*3600000, key=Math.floor(now/BAR); if(now-key*BAR>3600000) return;   /* entries only in the first hour of a 4h bar */
+    mem.h4=mem.h4||{last:{}}; mem.h4.last=mem.h4.last||{}; const H4MAX=5;
+    let nOpen=acct.positions.filter(p=>p.qty!==0&&mem.open[p.ticker]&&mem.open[p.ticker].h4).length;
+    for(const tk of SC_CRYPTO){ if(nOpen>=H4MAX) break; if(mem.h4.last[tk]===key) continue; if(acct.positions.some(x=>x.ticker===tk&&x.qty!==0)) { mem.h4.last[tk]=key; continue; }
+      let px=null; try{ const q=await _tbQuote(tk); if(q&&q.price>0) px=q.price; }catch(e){} if(!(px>0)) continue; QETrend.rec(tk,px);
+      let bars=null; try{ bars=await Promise.race([ _scBars(tk,"5d"), new Promise(res=>setTimeout(()=>res(null),7000)) ]); }catch(e){ bars=null; } if(!(bars&&bars.length>=100)) continue;   /* no data: retry on the next tick */
+      mem.h4.last[tk]=key;
+      const V=QETrend.dir(tk,px,{bars:bars,crypto:true}); const rr=V.r||{}; const dir=V.d; 
+      if(!dir || rr.h4==null || Math.sign(rr.h4)!==dir || (rr.h1!=null&&Math.sign(rr.h1)===-dir)){ try{ window.QEVXLog.log("INFO","h4.skip "+tk,{why:"no_clear_trend",r:rr}); }catch(e){} continue; }
+      const cl=bars.slice(-96).map(b=>b.close).filter(x=>x>0); let sq=0,nn=0; for(let i=1;i<cl.length;i++){ const r1=Math.log(cl[i]/cl[i-1]); sq+=r1*r1; nn++; } const vol4=nn?Math.sqrt(sq/nn)*Math.sqrt(48)*100:2; const stopPct=Math.max(1.5,Math.min(5,1.5*vol4));
+      const pm={...vxPricesRef.current}; pm[tk]=px; const eq=_vxEquity(acct,pm).equity; if(!(eq>0)) continue;
+      let notional=Math.min(0.005*eq/(stopPct/100), 0.10*eq, dir>0?acct.cash*0.9:Infinity); let qty=Math.floor(notional/px*1e6)/1e6; if(qty*px<10) continue;
+      const G=_scGate(acct,mem,pm,tk,dir,px,stopPct,qty,true); if(G.block){ _scGateLog(tk,G); continue; } if(G.qty!==qty){ _scGateLog(tk,G,qty,G.qty); qty=G.qty; } if(qty*px<10) continue;
+      const fee=_vxFeeFor(qty,px,tk); const r=_vxApply(acct,dir>0?"buy":"sell",tk,qty,px,fee,"ai",{limitMin:100000}); if(!r.ok) continue;
+      _saveVX(r.acct); acct=r.acct; nOpen++;
+      mem.open[tk]={side:dir>0?"long":"short",conf:null,entryPrice:px,qty:qty,ts:now,target:+(px*(1+dir*2*stopPct/100)).toFixed(4),stop:+(px*(1-dir*stopPct/100)).toFixed(4),limitMin:100000,h4:true,r1:+(px*stopPct/100).toFixed(4),pk:0,signs:null,plan:{rr:2,src:{t:"h4",s:"trend"},tp:+(2*stopPct).toFixed(2),sp:+stopPct.toFixed(2)}};
+      _saveAi(mem); setVxPrices(prev=>({...prev,[tk]:px}));
+      try{ window.QEVXLog.log("INFO","h4.entry "+tk,{side:dir>0?"long":"short",qty:qty,px:px,stop:mem.open[tk].stop,target:mem.open[tk].target,sp:+stopPct.toFixed(2),r:rr,fee:+fee.toFixed(3)}); }catch(e){} }
+    _saveAi(mem);
+  }catch(e){ try{ window.QEVXLog.err("h4.tick",e); }catch(_){} } finally{ window.__h4Busy=false; } };
+  try{ window.__h4Tick=_h4Tick; }catch(e){}
+  useEffect(()=>{ const id=setInterval(()=>{ try{ _h4Tick(); }catch(e){} },15000); return ()=>clearInterval(id); },[]);
   /* vc613: the CONTROLLER (QECtl) now gates SCALP entries as it gates swing entries: net-exposure block, scalp size multiplier (defense / drawdown / vol / chop) and the risk-budget ("heat") fit. Returns {block} or {qty} */
   /* vc614: the controller's scalp budget (scalpPct) has PRIORITY in every path: the 5-min cycle already used it; the turbo path (_tbOpen) used the raw user budget */
   const _scPctC=(acct,mem,pm)=>{ const b=_scPct(); try{ if(!(b>0)||!_ctlOn()) return b; const A=_ctlCalc(acct,mem,pm); return (A&&A.scalpPct>0)?Math.min(b,A.scalpPct):b; }catch(e){ return b; } };
-  const _scGate=(acct,mem,pm,tk,dir,px,stopPct,qty)=>{ try{ if(!_ctlOn()) return {qty:qty}; const CT=_ctlCalc(acct,mem,pm); if(!CT) return {qty:qty}; const cr=_isCryptoTk(tk);
+  const _scGate=(acct,mem,pm,tk,dir,px,stopPct,qty,slow)=>{ try{ if(!_ctlOn()) return {qty:qty}; const CT=_ctlCalc(acct,mem,pm); if(!CT) return {qty:qty}; const cr=_isCryptoTk(tk);
       { const DDv=parseFloat(localStorage.getItem("qe_vx_ddlim")), LIM=(DDv>=0&&DDv<=20)?DDv:2; if(LIM>0 && CT.dayDD<=-LIM) return {block:"day_limit",CT:CT}; }   /* account day-loss limit: the controller stops NEW scalps too */
       const g=QECtl.entry(CT,dir,false); if(g.block) return {block:g.reason,CT:CT};
-      { const TG=QETrend.gate(tk,dir,px,true); if(TG.block) return {block:"counter_trend",CT:CT,TR:TG.tr}; }   /* vc615: falling -> only short, rising -> only long */
+      { const TG=QETrend.gate(tk,dir,px,!slow); if(TG.block) return {block:"counter_trend",CT:CT,TR:TG.tr}; }   /* vc615: falling -> only short, rising -> only long */
       let q=qty; const mm=CT.scalpMult; if(mm>0&&mm<1) q=cr?Math.floor(q*mm*1e6)/1e6:Math.floor(q*mm);
       const mx=QECtl.fit(CT,px,stopPct,cr); if(cr?(mx*px<10):(mx<1)) return {block:"heat",CT:CT}; q=Math.min(q,mx);
       if(cr?(q*px<10):(q<1)) return {block:"size",CT:CT}; return {qty:q,CT:CT,mult:mm}; }catch(e){ return {qty:qty}; } };
@@ -20128,7 +20191,8 @@ function App(){
       const TP=8, SL=-4;   // take profit at +8%, cut at -4% (unrealised, per position)
       for(const p of acct.positions.slice()){
         let th=mem.open&&mem.open[p.ticker];
-        if(th && th.scalp) continue;   // vc535: scalps are managed by _vxScalpCycle (own target/stop), never by the swing rules
+        if(th && (th.scalp||th.h4)) continue;   // vc618: H4 slow-swing positions have their own manager (_h4Tick)
+        // vc535: scalps are managed by _vxScalpCycle (own target/stop), never by the swing rules
         if(!th && p.by==="ai"){ th={ side:p.qty>0?"long":"short", conf:null, entryPrice:p.avg, qty:Math.abs(p.qty), ts:p.openTs||Date.now(), target:0, stop:0, limitMin:vxHoldRef.current, adopted:true, signs:null }; mem.open=mem.open||{}; mem.open[p.ticker]=th; try{ window.QEVXLog.log("INFO","manage.adopt",p.ticker); }catch(e){} }   // AI-opened position that lost its thesis → re-adopt (plan: %-based TP/SL)
         if(!th){ if(!vxWarnedRef.current[p.ticker]){ vxWarnedRef.current[p.ticker]=1; try{ window.QEVXLog.log("INFO","manage.manual",p.ticker+" (not opened by the AI — left alone)"); }catch(e){} } continue; }   // manual positions are never auto-closed
         let px=null; try{ const q=await _vxQuote(p.ticker,{force:true}); if(q&&q.price>0) px=q.price; }catch(e){ window.QEVXLog.err("quote.fail "+p.ticker,e); }
@@ -20184,7 +20248,7 @@ function App(){
         // re-entry into winners: held AI positions that are in profit and still rising are re-checked for a limited add-on
         try{ const pxs=vxPricesRef.current||{}; let na=0;
           acct.positions.forEach(p=>{ const th=mem.open&&mem.open[p.ticker]; const px=pxs[p.ticker];
-            if(na>=3||!th||th.scalp||p.by!=="ai"||!(px>0)||(th.adds||0)>=2) return;
+            if(na>=3||!th||th.scalp||th.h4||p.by!=="ai"||!(px>0)||(th.adds||0)>=2) return;
             if(Date.now()-(th.lastAddTs||th.ts||0)<120000) return;
             const lastPx=th.lastEntryPx||th.entryPrice; const up=p.qty>0;
             const rising=up?(px>=lastPx*1.005&&px>p.avg):(px<=lastPx*0.995&&px<p.avg);
@@ -20340,7 +20404,7 @@ function App(){
           const nPos=acct.positions.filter(p=>p.by!=="ct"&&!(mem.open&&mem.open[p.ticker]&&mem.open[p.ticker].scalp)).length;   /* vc597: Crypto-Trend holdings have their own bucket */
           if(nPos>=MAXP){
             const candEv=(exp!=null&&isFinite(exp))?exp:0; let worst=null;
-            acct.positions.forEach(p=>{ if(p.by!=="ai") return; const th=mem.open&&mem.open[p.ticker]; if(!th||th.scalp) return; const px0=vxPricesRef.current&&vxPricesRef.current[p.ticker]; if(!(px0>0)) return;
+            acct.positions.forEach(p=>{ if(p.by!=="ai") return; const th=mem.open&&mem.open[p.ticker]; if(!th||th.scalp||th.h4) return; const px0=vxPricesRef.current&&vxPricesRef.current[p.ticker]; if(!(px0>0)) return;
               const sg=p.qty>0?1:-1;
               if(!(sg*(px0-p.avg)*Math.abs(p.qty)-(p.fees||0)-_vxFeeFor(Math.abs(p.qty),px0)>0)) return;   // only a holding that is ALREADY in net profit can be rotated out — never close at a loss
               const tgtPct=th.target>0?sg*(th.target-px0)/px0*100:0; const stpPct=th.stop>0?sg*(px0-th.stop)/px0*100:0;
@@ -22185,6 +22249,7 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
                   row("👤 "+t("vx_you_side"),bs.youRealized,bs.youTrades,T.cyan));
               })(),
               e(GoalBox,{T:T,LANG:LANG,acct:vxAcct,isOpen:()=>{ try{ return window.QEHours.isOpen(vxExchRef.current||"US"); }catch(_e){ return true; } },getEq:()=>{ try{ const a0=_acctNow()||vxAcct; return a0?_vxEquity(a0,{...vxPricesRef.current}).equity:null; }catch(_e){ return null; } }}),
+              e(H4Box,{T:T,LANG:LANG,acct:vxAcct}),
               // ── control center: autoplay → positions → sections (collapsible, state remembered) ──
               e("div",{style:{background:T.bg1,border:`1px solid ${T.border}`,borderRadius:"12px",padding:"10px 12px 12px",marginBottom:"12px"}},
                 e("div",{style:{display:"flex",gap:"8px",marginTop:"8px"}},
