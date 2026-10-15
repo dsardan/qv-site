@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.172</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.173</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.172";
+const QE_VERSION = "15.12.173";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -6865,6 +6865,21 @@ var QETrend=(function(){
   return {rec:rec,dir:dir,check:check,gate:gate,turned:turned,view:view,on:on,tightStop:tightStop,_S:S};
 })();
 try{ window.QETrend=QETrend; }catch(e){}
+/* ============ QEDiag (vc619) - pure scalp diagnostics from the closed-trade history (net, why, side, mfe, mae, hold) ============ */
+var QEDiag=(function(){
+  function med(a){ if(!a.length) return null; a=a.slice().sort(function(x,y){return x-y;}); var m=a.length>>1; return a.length%2?a[m]:(a[m-1]+a[m])/2; }
+  function grp(h,keyf){ var o={}; h.forEach(function(x){ var k=keyf(x); var g=o[k]||(o[k]={n:0,w:0,sum:0}); g.n++; if(x.net>0) g.w++; g.sum+=x.net; }); return o; }
+  function summarize(hist,opt){ opt=opt||{}; var h=(hist||[]).filter(function(x){ return x&&x.net!=null&&isFinite(x.net); }); var n=h.length; var o={n:n}; if(!n) return o;
+    var W=h.filter(function(x){return x.net>0;}), L=h.filter(function(x){return x.net<=0;});
+    o.win=W.length/n; o.sum=h.reduce(function(a,x){return a+x.net;},0); o.avgW=W.length?W.reduce(function(a,x){return a+x.net;},0)/W.length:0; o.avgL=L.length?L.reduce(function(a,x){return a+x.net;},0)/L.length:0;
+    o.beWin=(o.avgW-o.avgL)>0?(-o.avgL)/(o.avgW-o.avgL):null;   /* win rate needed for zero expectancy with THIS payoff */
+    o.exp=o.sum/n; o.byWhy=grp(h,function(x){return x.why||"?";}); o.bySide=grp(h,function(x){return x.side>0?"long":"short";});
+    var m=h.filter(function(x){return x.mfe!=null&&x.mae!=null;}); o.nm=m.length;
+    if(m.length){ var th=opt.thr||0.35; o.mfeMed=med(m.map(function(x){return x.mfe;})); o.maeMed=med(m.map(function(x){return x.mae;})); o.fwdReach=m.filter(function(x){return x.mfe>=th;}).length/m.length; o.revReach=m.filter(function(x){return x.mae>=th;}).length/m.length; o.thr=th; o.holdMed=med(m.map(function(x){return x.hold||0;})); }
+    return o; }
+  return {summarize:summarize};
+})();
+try{ window.QEDiag=QEDiag; }catch(e){}
 
 
 /* ============ QEDogs - watchdogs for chosen stocks (vc551) ============
@@ -15507,6 +15522,27 @@ function QfHelp(props){
         P(tx("now")+": "+(st==="ok"?"✓":st==="warn"?"⚠":"✗")+"  "+path+"% "+(base>0?("÷ "+base+"% = ×"+(path/Math.max(1,base)).toFixed(2)):"")+", "+(edge>0?"+":"")+edge+" "+(LG==="en"?"pp":LG==="he"?"נק׳":"п.п."),{color:col,fontWeight:"800"}),
         H("h4"), P("• "+tx("u1")), P("• "+tx("u2")), P("• "+tx("u3")), P("• "+tx("u4"),{color:T.gold}))));
 }
+function ScalpDiag(props){
+  const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const [,setN]=useState(0); const [open,setOpen]=useState(false);
+  useEffect(()=>{ const id=setInterval(()=>setN(x=>x+1),8000); return ()=>clearInterval(id); },[]);
+  const X={ttl:{ru:"🔬 Диагностика скальпинга (по закрытым сделкам)",he:"🔬 אבחון סקאלפינג (לפי עסקאות סגורות)",en:"🔬 Scalping diagnostics (closed trades)"},
+    none:{ru:"Нет закрытых сделок",he:"אין עסקאות סגורות",en:"No closed trades"},
+    sm:{ru:"сделок {n} · прибыльных {w}% · ср. плюс {aw} · ср. минус {al} · чтобы выйти в ноль нужно {be}% побед · итого {s}",he:"עסקאות {n} · רווחיות {w}% · רווח ממוצע {aw} · הפסד ממוצע {al} · לאפס נדרשים {be}% ניצחונות · סה״כ {s}",en:"trades {n} · winners {w}% · avg win {aw} · avg loss {al} · breakeven needs {be}% winners · total {s}"},
+    mm:{ru:"Ход цены после входа ({m} сделок): медиана максимума в плюс {f}%, в минус {a}%, держали {h} с. Дошли до +{t}%: {fr}% сделок; дошли до −{t}% (обратная сторона заработала бы): {rr}%",he:"תנועת מחיר אחרי כניסה ({m} עסקאות): חציון מקסימום ברווח {f}%, בהפסד {a}%, החזקה {h} שנ׳. הגיעו ל-+{t}%: {fr}%; הגיעו ל-−{t}% (הצד ההפוך היה מרוויח): {rr}%",en:"Price path after entry ({m} trades): median best {f}%, worst {a}%, held {h}s. Reached +{t}%: {fr}%; reached −{t}% (the opposite side would have won): {rr}%"},
+    why:{ru:"По выходам",he:"לפי יציאה",en:"By exit"}, side:{ru:"По сторонам",he:"לפי צד",en:"By side"}, hint:{ru:"Данные хода цены копятся с версии 15.12.173",he:"נתוני מסלול המחיר נצברים מגרסה 15.12.173",en:"Price-path data accumulates from 15.12.173"}};
+  const L=(k)=>(X[k][LG]||X[k].en); const fm=(v)=>(v>=0?"+$":"−$")+Math.abs(v).toFixed(2);
+  let D={n:0}; try{ D=window.QEDiag.summarize(props.getHist?props.getHist():[]); }catch(_){}
+  const fill=(t,o)=>t.replace(/\{(\w+)\}/g,(_,k)=>(o[k]!=null?o[k]:""));
+  const grpTxt=(g)=>Object.keys(g).map(k=>k+" "+g[k].n+"/"+Math.round(g[k].w/g[k].n*100)+"%/"+fm(g[k].sum)).join(" · ");
+  return e("div",{"data-testid":"scalp-diag",style:{background:T.bg2,border:`1px solid ${T.border}`,borderRadius:"10px",padding:"10px 12px",margin:"8px 0"}},
+    e("div",{onClick:()=>setOpen(!open),style:{fontSize:"12px",fontWeight:700,color:T.text,cursor:"pointer",display:"flex",justifyContent:"space-between"}},e("span",null,L("ttl")),e("span",null,open?"▾":"▸")),
+    open&&e("div",{style:{fontSize:"10.5px",color:T.text,marginTop:"6px",lineHeight:1.45}},
+      !D.n?L("none"):[
+        e("div",{key:"a","data-testid":"diag-sum"},fill(L("sm"),{n:D.n,w:Math.round(D.win*100),aw:fm(D.avgW),al:fm(D.avgL),be:D.beWin!=null?Math.round(D.beWin*100):"—",s:fm(D.sum)})),
+        e("div",{key:"b",style:{marginTop:"4px",fontFamily:"monospace"}},L("why")+": "+grpTxt(D.byWhy)),
+        e("div",{key:"c",style:{fontFamily:"monospace"}},L("side")+": "+grpTxt(D.bySide)),
+        D.nm?e("div",{key:"d",style:{marginTop:"4px"}},fill(L("mm"),{m:D.nm,f:D.mfeMed.toFixed(2),a:D.maeMed.toFixed(2),h:Math.round(D.holdMed),t:D.thr,fr:Math.round(D.fwdReach*100),rr:Math.round(D.revReach*100)})):e("div",{key:"e",style:{marginTop:"4px",color:T.gray1}},L("hint"))]));
+}
 function H4Box(props){
   const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const acct=props.acct;
   const [,setN]=useState(0); const [on,setOn]=useState(()=>{ try{ return localStorage.getItem("qe_h4")==="1"; }catch(_){ return false; } });
@@ -19915,10 +19951,10 @@ function App(){
     return {dir:dir,rv:rv,dev:dev,mv:mv,mv5:mv5,band:band,p:p,score:Math.abs(mv)/band}; };
   const _tbPush=(tk,px)=>{ const R=tbRef.current, now=Date.now(); const b=R.buf[tk]||(R.buf[tk]=[]); b.push({t:now,p:px}); while(b.length&&now-b[0].t>90000) b.shift(); if(b.length>60) b.shift(); return b; };
   const _tbQuote=async(tk)=>{ return await Promise.race([ _vxQuote(tk,{force:true}), new Promise(res=>setTimeout(()=>res(null),4500)) ]); };
-  const _tbRecord=(r,tk,sd,why,heldS)=>{ try{ const S=_scLoad(); S.hist=(S.hist||[]).concat([{ts:Date.now(),tk:tk,net:+r.net.toFixed(2),why:why,side:sd,turbo:1}]).slice(-150); S.w=(S.w||[]).concat([r.net]).slice(-20); S.dayPnl=+((S.dayPnl||0)+r.net).toFixed(2); S.dayN=(S.dayN||0)+1; _scSave(S); const R=tbRef.current; R.n++; R.net+=r.net; try{ window.QEVXLog.log("INFO","scalp.exit "+tk,{act:why,side:sd>0?"long":"short",net:+r.net.toFixed(2),held:+(heldS/60).toFixed(2),turbo:true}); }catch(e){} setVxMsg("⚡ "+(r.net>=0?"✓ ":"✕ ")+tk+" "+_vxUSD(r.net,true)); }catch(e){} };
+  const _tbRecord=(r,tk,sd,why,heldS,th0)=>{ try{ const S=_scLoad(); S.hist=(S.hist||[]).concat([{ts:Date.now(),tk:tk,net:+r.net.toFixed(2),why:why,side:sd,turbo:1,mfe:th0?(th0.pk||0):undefined,mae:th0?(th0.mae||0):undefined,hold:Math.round(heldS||0),sp:th0&&th0.scalpSig?th0.scalpSig.sp:undefined}]).slice(-150); S.w=(S.w||[]).concat([r.net]).slice(-20); S.dayPnl=+((S.dayPnl||0)+r.net).toFixed(2); S.dayN=(S.dayN||0)+1; _scSave(S); const R=tbRef.current; R.n++; R.net+=r.net; try{ window.QEVXLog.log("INFO","scalp.exit "+tk,{act:why,side:sd>0?"long":"short",net:+r.net.toFixed(2),held:+(heldS/60).toFixed(2),turbo:true}); }catch(e){} setVxMsg("⚡ "+(r.net>=0?"✓ ":"✕ ")+tk+" "+_vxUSD(r.net,true)); }catch(e){} };
   const _tbClose=(tk,px,why)=>{ const acct=_tbAcct(); if(!acct) return null; const p=acct.positions.find(x=>x.ticker===tk&&x.qty!==0); if(!p) return null; const sd=p.qty>0?1:-1; const mem=_loadAi(); const th=mem.open&&mem.open[tk]; const q=Math.abs(p.qty); const openTs=p.openTs||(th&&th.ts)||Date.now();
     let r; try{ r=_vxApply(acct,sd>0?"sell":"buy",tk,q,px,_vxFeeFor(q,px,tk),"ai",{limitMin:0,reason:"scalp_"+why,openTs:openTs,scalp:true}); }catch(e){ r={ok:false}; } if(!r.ok) return null;
-    _saveVX(r.acct); setVxPrices(prev=>({...prev,[tk]:px})); if(th){ delete mem.open[tk]; _saveAi(mem); } _tbRecord(r,tk,sd,why,(Date.now()-openTs)/1000*1); return {net:r.net,sd:sd}; };
+    _saveVX(r.acct); setVxPrices(prev=>({...prev,[tk]:px})); if(th){ delete mem.open[tk]; _saveAi(mem); } _tbRecord(r,tk,sd,why,(Date.now()-openTs)/1000*1,th); return {net:r.net,sd:sd}; };
   /* ═════ vc618: H4 SLOW-SWING mode (the useful kernel of the Dragonfly cBot, WITHOUT its martingale): ONE trade per coin per 4-hour bar, only with a clear 1h/4h trend, fixed risk (0.5 % of equity), stop 1.5-5 % (volatility), target 2R, break-even ratchet after +1R, NO averaging down. Exits only at stop or net profit. Separate stats vs scalping. Default OFF (qe_h4=1) ═════ */
   const _h4On=()=>{ try{ return localStorage.getItem("qe_h4")==="1"; }catch(e){ return false; } };
   const _h4Close=(tk,px,why)=>{ const acct=_tbAcct(); if(!acct) return null; const p=acct.positions.find(x=>x.ticker===tk&&x.qty!==0); if(!p) return null; const sd=p.qty>0?1:-1; const mem=_loadAi(); const th=mem.open&&mem.open[tk]; const q=Math.abs(p.qty); const openTs=p.openTs||(th&&th.ts)||Date.now();
@@ -19971,7 +20007,7 @@ function App(){
   const _tbOpen=(tk,dir,px,m)=>{ const acct=_tbAcct(); if(!acct||!(px>0)) return false; if(acct.positions.some(p=>p.ticker===tk&&p.qty!==0)) return false; const mem=_loadAi(); const pm={...vxPricesRef.current}; pm[tk]=px;
     const eq=_vxEquity(acct,pm).equity; const pct=_scPctC(acct,mem,pm); if(!(pct>0)||!(eq>0)) return false; const bucket=pct/100*eq; let used=0,nS=0; acct.positions.forEach(p=>{ const th=mem.open&&mem.open[p.ticker]; if(th&&th.scalp&&p.qty!==0){ used+=Math.abs(p.qty)*p.avg; if(_isCryptoTk(p.ticker)===_isCryptoTk(tk)) nS++; } });
     const MAXT=TB().maxT; if(nS>=MAXT) return false; const free=bucket-used; if(!(free>100)) return false;
-    const CR=_isCryptoTk(tk); const stopPct=CR?Math.min(0.8,Math.max(0.3,4*m.band)):Math.min(0.5,Math.max(0.12,4*m.band)); const capCash=dir>0?(acct.cash-0.05*eq):Infinity; const tpPct=CR?0.9:0.6;   /* crypto: wider stop/target to clear the 0.10 %/side fee */
+    const CR=_isCryptoTk(tk); const stopPct=CR?Math.min(1.0,Math.max(0.6,4*m.band)):Math.min(0.5,Math.max(0.12,4*m.band)); const capCash=dir>0?(acct.cash-0.05*eq):Infinity; const tpPct=CR?+(2.5*stopPct).toFixed(2):0.6;   /* vc619: crypto stop 0.6-1.0 % (0.3 % was inside the noise + 0.20 % fees), target 2.5R - the old 0.3/0.9 payoff needed ~90 % winners */   /* crypto: wider stop/target to clear the 0.10 %/side fee */
     let notional=Math.min(free,bucket/MAXT,capCash,0.003*eq/(stopPct/100)); let qty=CR?Math.floor(notional/px*1e6)/1e6:Math.floor(notional/px); let lot=1; try{ lot=window.QEFx.lot(tk)||1; }catch(e){} if(lot>1) qty=Math.floor(qty/lot)*lot; if(CR?(qty*px<10):(qty<1)) return false;
     { const G=_scGate(acct,mem,pm,tk,dir,px,stopPct,qty); if(G.block){ _scGateLog(tk,G); return false; } if(G.qty!==qty){ _scGateLog(tk,G,qty,G.qty); qty=G.qty; } }
     const fee=_vxFeeFor(qty,px,tk); const r=_vxApply(acct,dir>0?"buy":"sell",tk,qty,px,fee,"ai",{scalp:true}); if(!r.ok) return false;
@@ -19987,12 +20023,15 @@ function App(){
     const buf=_tbPush(tk,px); const now=Date.now();
     const acct=_tbAcct(); const p=acct&&acct.positions.find(x=>x.ticker===tk&&x.qty!==0); const mem=_loadAi(); const th=mem.open&&mem.open[tk]; if(!p||!(th&&th.scalp)){ h.alive=false; return; }   // closed by the user / heavy cycle while we waited
     const sd=p.qty>0?1:-1; h.side=sd>0?"long":"short"; const qn=Math.abs(p.qty), exitFee=_vxFeeFor(qn,px,tk); const netUsd=sd*(px-p.avg)*qn-exitFee-(p.fees||0); const fav=sd*(px-p.avg)/p.avg*100; h.fav=+fav.toFixed(3);
-    if(fav>(th.pk||0)){ th.pk=+fav.toFixed(4); if(!h.pkSave||now-h.pkSave>15000){ h.pkSave=now; _saveAi(mem); } }
+    { const CRs=_isCryptoTk(tk); let dirty=false; if(fav>(th.pk||0)){ th.pk=+fav.toFixed(4); dirty=true; } if(-fav>(th.mae||0)){ th.mae=+(-fav).toFixed(4); dirty=true; }   /* vc619: MFE/MAE per trade (diagnostics) */
+      const spp=(th.scalpSig&&th.scalpSig.sp)||0; if(CRs&&spp>0&&!th.be&&fav>=spp){ const ns=+(p.avg*(1+sd*0.003)).toFixed(4); if(sd>0?ns>th.stop:ns<th.stop){ th.stop=ns; th.be=1; dirty=true; try{ window.QEVXLog.log("INFO","scalp.be "+tk,{stop:ns}); }catch(e){} } }   /* +1R reached: stop to breakeven+0.3 % (a stop move, not a discretionary exit) */
+      if(dirty&&(!h.pkSave||now-h.pkSave>15000)){ h.pkSave=now; _saveAi(mem); } }
     const heldMs=now-(p.openTs||th.ts||now); const m=_tbMicro(buf,now,_isCryptoTk(tk)); if(m&&(m.rv===-sd||m.dir===-sd)) h.rev++; else h.rev=0;
-    let act=null; if(th.stop>0&&sd*(px-th.stop)<=0) act="cut"; else if(th.target>0&&sd*(px-th.target)>=0&&netUsd>0) act="take"; else if(netUsd>0&&(th.pk||0)>=0.05&&fav<=th.pk*0.55) act="tb_trail"; else if(QETrend.on()&&(h.rev>=2&&!h.rvL?(h.rvL=true,true):h.rvL)&&netUsd>0) act="tb_turn";   /* vc617: reversal latched; sell at first net profit > 0 */;   // vc592: no reversal exit — exits only at profit (target/trail) or stop
+    let act=null; if(th.stop>0&&sd*(px-th.stop)<=0) act="cut"; else if(th.target>0&&sd*(px-th.target)>=0&&netUsd>0) act="take"; else if(netUsd>0&&((_isCryptoTk(tk)&&((th.scalpSig&&th.scalpSig.sp)||0)>0)?((th.pk||0)>=1.5*th.scalpSig.sp&&fav<=th.pk*0.6):((th.pk||0)>=0.05&&fav<=th.pk*0.55))) act="tb_trail"; else if(QETrend.on()&&(h.rev>=2&&!h.rvL?(h.rvL=true,true):h.rvL)&&netUsd>0) act="tb_turn";   /* vc617: reversal latched; sell at first net profit > 0 */;   // vc592: no reversal exit — exits only at profit (target/trail) or stop
     if(!act) return;
+    try{ _saveAi(mem); }catch(e){}   /* vc619: persist MFE/MAE before the close reloads the ledger */
     const c=_tbClose(tk,px,act); if(!c) return; h.alive=false;
-    tbRef.current.cool[tk]=now+10000;
+    tbRef.current.cool[tk]=now+(_isCryptoTk(tk)?(act==='cut'?900000:300000):10000);   /* vc619: crypto - 15 min after a stop-out, 5 min after a win; no instant re-entry on the same coin */
     try{ const R2=tbRef.current; R2.recent=R2.recent||{}; R2.recent[tk]=now; }catch(e){}
     _tbPub(true); };
   const _tbSpawn=(tk)=>{ const R=tbRef.current; const old=R.thr[tk]; if(old&&old.alive) return old; const h={tk:tk,id:"t"+Date.now().toString(36).slice(-4)+tk,alive:true,ticks:0,errs:0,rev:0,gap:_tbGap(tk,TB()),side:"",fav:0,lastMs:0,flipT:[],born:Date.now(),lastRun:Date.now(),busy:false,busyT:0}; R.thr[tk]=h;
@@ -22250,6 +22289,7 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
               })(),
               e(GoalBox,{T:T,LANG:LANG,acct:vxAcct,isOpen:()=>{ try{ return window.QEHours.isOpen(vxExchRef.current||"US"); }catch(_e){ return true; } },getEq:()=>{ try{ const a0=_acctNow()||vxAcct; return a0?_vxEquity(a0,{...vxPricesRef.current}).equity:null; }catch(_e){ return null; } }}),
               e(H4Box,{T:T,LANG:LANG,acct:vxAcct}),
+              e(ScalpDiag,{T:T,LANG:LANG,getHist:()=>{ try{ return (_scLoad().hist)||[]; }catch(_e){ return []; } }}),
               // ── control center: autoplay → positions → sections (collapsible, state remembered) ──
               e("div",{style:{background:T.bg1,border:`1px solid ${T.border}`,borderRadius:"12px",padding:"10px 12px 12px",marginBottom:"12px"}},
                 e("div",{style:{display:"flex",gap:"8px",marginTop:"8px"}},
