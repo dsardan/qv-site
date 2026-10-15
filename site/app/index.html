@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.179</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.180</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.179";
+const QE_VERSION = "15.12.180";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -15607,7 +15607,7 @@ function ScalpDiag(props){
     none:{ru:"Нет закрытых сделок",he:"אין עסקאות סגורות",en:"No closed trades"},
     sm:{ru:"сделок {n} · прибыльных {w}% · ср. плюс {aw} · ср. минус {al} · чтобы выйти в ноль нужно {be}% побед · итого {s}",he:"עסקאות {n} · רווחיות {w}% · רווח ממוצע {aw} · הפסד ממוצע {al} · לאפס נדרשים {be}% ניצחונות · סה״כ {s}",en:"trades {n} · winners {w}% · avg win {aw} · avg loss {al} · breakeven needs {be}% winners · total {s}"},
     mm:{ru:"Ход цены после входа ({m} сделок): медиана максимума в плюс {f}%, в минус {a}%, держали {h} с. Дошли до +{t}%: {fr}% сделок; дошли до −{t}% (обратная сторона заработала бы): {rr}%",he:"תנועת מחיר אחרי כניסה ({m} עסקאות): חציון מקסימום ברווח {f}%, בהפסד {a}%, החזקה {h} שנ׳. הגיעו ל-+{t}%: {fr}%; הגיעו ל-−{t}% (הצד ההפוך היה מרוויח): {rr}%",en:"Price path after entry ({m} trades): median best {f}%, worst {a}%, held {h}s. Reached +{t}%: {fr}%; reached −{t}% (the opposite side would have won): {rr}%"},
-    bk:{ru:"Со стаканом (поддержал вход): {a} сделок, {aw}% прибыльных, {as}; без данных стакана: {b} сделок, {bw}% , {bs}",he:"עם ספר הוראות (תמך בכניסה): {a} עסקאות, {aw}% רווחיות, {as}; בלי נתוני ספר: {b} עסקאות, {bw}%, {bs}",en:"With order book (supported entry): {a} trades, {aw}% winners, {as}; without book data: {b} trades, {bw}%, {bs}"}, why:{ru:"По выходам",he:"לפי יציאה",en:"By exit"}, side:{ru:"По сторонам",he:"לפי צד",en:"By side"}, u60:{ru:"Сигнал не сработал за 60 с (цена не ушла в нашу сторону даже на +{t}%): {u}% из {n} сделок; из них со стаканом «ок»: {ub}% из {nb}",he:"האות לא פעל תוך 60 שנ׳ (המחיר לא זז לכיוון שלנו אפילו +{t}%): {u}% מתוך {n} עסקאות; מהן עם ספר «תקין»: {ub}% מתוך {nb}",en:"Signal did not work within 60 s (price never moved our way even +{t}%): {u}% of {n} trades; with book 'ok': {ub}% of {nb}"}, hint:{ru:"Данные хода цены копятся с версии 15.12.179",he:"נתוני מסלול המחיר נצברים מגרסה 15.12.179",en:"Price-path data accumulates from 15.12.179"}};
+    bk:{ru:"Со стаканом (поддержал вход): {a} сделок, {aw}% прибыльных, {as}; без данных стакана: {b} сделок, {bw}% , {bs}",he:"עם ספר הוראות (תמך בכניסה): {a} עסקאות, {aw}% רווחיות, {as}; בלי נתוני ספר: {b} עסקאות, {bw}%, {bs}",en:"With order book (supported entry): {a} trades, {aw}% winners, {as}; without book data: {b} trades, {bw}%, {bs}"}, why:{ru:"По выходам",he:"לפי יציאה",en:"By exit"}, side:{ru:"По сторонам",he:"לפי צד",en:"By side"}, u60:{ru:"Сигнал не сработал за 60 с (цена не ушла в нашу сторону даже на +{t}%): {u}% из {n} сделок; из них со стаканом «ок»: {ub}% из {nb}",he:"האות לא פעל תוך 60 שנ׳ (המחיר לא זז לכיוון שלנו אפילו +{t}%): {u}% מתוך {n} עסקאות; מהן עם ספר «תקין»: {ub}% מתוך {nb}",en:"Signal did not work within 60 s (price never moved our way even +{t}%): {u}% of {n} trades; with book 'ok': {ub}% of {nb}"}, hint:{ru:"Данные хода цены копятся с версии 15.12.180",he:"נתוני מסלול המחיר נצברים מגרסה 15.12.180",en:"Price-path data accumulates from 15.12.180"}};
   const L=(k)=>(X[k][LG]||X[k].en); const fm=(v)=>(v>=0?"+$":"−$")+Math.abs(v).toFixed(2);
   let D={n:0}; try{ D=window.QEDiag.summarize(props.getHist?props.getHist():[]); }catch(_){}
   const fill=(t,o)=>t.replace(/\{(\w+)\}/g,(_,k)=>(o[k]!=null?o[k]:""));
@@ -19519,7 +19519,10 @@ function App(){
       try{ setVxMsg("↺ "+({ru:"Убытки обнулены: отсчёт дня/недели/месяца и просадки начат с $"+Math.round(eq),he:"ההפסדים אופסו: ספירת יום/שבוע/חודש וירידה מהשיא החלה מ-$"+Math.round(eq),en:"Losses reset: day/week/month and drawdown counting restarted from $"+Math.round(eq)})[LANG]); }catch(e){}
       return true; }catch(e){ return false; } };
   const vxSetDdNum=(txt)=>{ setVxDdTxt(txt); const v=parseFloat(String(txt).replace(",",".")); if(v>=0&&v<=20){ const r=Math.round(v*10)/10; setVxDd(r); try{ localStorage.setItem("qe_vx_ddlim",String(r)); }catch(x){} } };
-  const budAdj=(sign)=>{ const n=_budNum(vxBudAdj); const a=_acctNow()||vxAcct; setVxBudConf(false); if(vxAiBusy){ setVxBudErr(t("vxb_err_busy")); return; } if(!(n>0)){ setVxBudErr(t("vxb_err_pos")); return; }
+  const budAdj=(sign)=>{ const n=_budNum(vxBudAdj); const a=_acctNow()||vxAcct; setVxBudConf(false); if(!(n>0)){ setVxBudErr(t("vxb_err_pos")); return; }
+    if(vxAiBusy){ if(sign<0){ setVxBudErr(t("vxb_err_busy")); return; } if(a.start+n+(budPendRef.current||0)>1e7){ setVxBudErr(t("vxb_err_max")); return; }   /* vc626: a deposit during an AI session is queued and applied right after it (on a slow network sessions run almost back-to-back, so the old "wait and retry" made deposits practically impossible) */
+      budPendRef.current=Math.round(((budPendRef.current||0)+n)*100)/100; setVxBudAdj(""); try{ window.QEVXLog.log("INFO","acct.deposit_queued",{amt:n,pending:budPendRef.current}); }catch(e){}
+      setVxBudErr(({ru:"Идёт сессия ИИ — пополнение $"+budPendRef.current+" будет зачислено автоматически сразу после неё",he:"סשן AI פעיל — ההפקדה $"+budPendRef.current+" תיכנס אוטומטית מיד אחריו",en:"AI session running — the $"+budPendRef.current+" deposit will be applied automatically right after it"})[LANG]); return; }
     if(sign>0){ if(a.start+n>1e7){ setVxBudErr(t("vxb_err_max")); return; } }
     else { const fr=_budFree(); if(n>fr+1e-6){ setVxBudErr(_fill("vxb_err_free",{v:_vxM(fr)})); return; } if(a.start-n<1000){ setVxBudErr(t("vxb_err_min")); return; } }
     vxAdjust(sign*Math.round(n*100)/100); setVxBudAdj(""); setVxBudErr(""); };
@@ -19543,7 +19546,8 @@ function App(){
         vxBudErr?e("div",{style:{marginTop:"10px",fontSize:"10px",color:T.red,fontFamily:"monospace",lineHeight:1.45}},vxBudErr):null,
         vxMsg?e("div",{style:{marginTop:"10px",fontSize:"10px",color:T.green,fontFamily:"monospace",lineHeight:1.45}},vxMsg):null)); };
   // ── AI auto-play (demo): the app analyzes a few names with its own engine and trades ──
-  const [vxAiBusy,setVxAiBusy]=useState(false);
+  const [vxAiBusy,setVxAiBusy]=useState(false); const budPendRef=useRef(0);
+  useEffect(()=>{ if(vxAiBusy) return; const d=budPendRef.current; if(!(d>0)) return; budPendRef.current=0; try{ vxAdjust(d); window.QEVXLog.log("INFO","acct.deposit_applied",{amt:d}); setVxBudErr(""); }catch(e){} },[vxAiBusy]);   /* vc626 */
   const vxCandRef=useRef({ts:0,list:[]});   // cache of scanner-picked candidates (refreshed ~3 min)
   // GOAL = maximise profit: rank candidates by expected value, and manage open positions
   // toward realised gains (take profit on winners, cut losers).
