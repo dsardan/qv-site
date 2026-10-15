@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.184</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.185</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.184";
+const QE_VERSION = "15.12.185";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -19256,7 +19256,10 @@ function App(){
   const [vxBud,setVxBud]=useState(false); const [vxBudVal,setVxBudVal]=useState(""); const [vxBudAdj,setVxBudAdj]=useState(""); const [vxBudConf,setVxBudConf]=useState(false); const [vxBudErr,setVxBudErr]=useState("");
   const _budNum=(x)=>{ const n=parseFloat(String(x).replace(/[\s,$]/g,"")); return isFinite(n)?n:NaN; };
   const _budFree=()=>{ const a=_acctNow()||vxAcct; const q=_vxEquity(a,{...vxPricesRef.current}); return Math.max(0,Math.min(a.cash,q.equity-q.gross)); };
-  const budReset=()=>{ const n=_budNum(vxBudVal); if(vxAiBusy){ setVxBudErr(t("vxb_err_busy")); return; } if(!(n>=1000&&n<=1e7)){ setVxBudErr(t("vxb_err_amt")); return; } if(!vxBudConf){ setVxBudConf(true); setVxBudErr(""); return; } vxReset(n); setVxBudConf(false); setVxBudErr(""); setVxBud(false); };
+  const _budTry=(o)=>{ try{ window.QEVXLog.log("INFO","acct.budget_try",o); }catch(e){} };   /* vc631: every budget attempt is logged (owner: "the budget does not change") */
+  const budReset=()=>{ const n=_budNum(vxBudVal); if(!(n>=1000&&n<=1e7)){ setVxBudErr(t("vxb_err_amt")); _budTry({act:"reset",amt:vxBudVal,res:"bad_amount"}); return; } if(!vxBudConf){ setVxBudConf(true); setVxBudErr(""); return; }
+    if(vxAiBusy){ budPendResetRef.current=n; setVxBudConf(false); _budTry({act:"reset",amt:n,res:"queued"}); setVxBudErr(({ru:"Идёт сессия ИИ — новый бюджет $"+n+" будет установлен автоматически сразу после неё",he:"סשן AI פעיל — התקציב החדש $"+n+" ייקבע אוטומטית מיד אחריו",en:"AI session running — the new $"+n+" budget will be set automatically right after it"})[LANG]); return; }   /* vc631: queued like deposits (sessions run almost back-to-back on a slow network) */
+    vxReset(n); _budTry({act:"reset",amt:n,res:"done"}); setVxBudConf(false); setVxBudErr(""); setVxBud(false); };
   /* vc622: owner request - "reset losses": restarts the day/week/month loss counters and the controller high-water mark from the CURRENT equity, and zeroes the scalp day P&L. Balance, positions and trade history are NOT touched. */
   const [vxZConf,setVxZConf]=useState(false); const [vxDdTxt,setVxDdTxt]=useState(()=>{ try{ const v=parseFloat(localStorage.getItem("qe_vx_ddlim")); return (v>=0&&v<=20)?String(v):"2"; }catch(e){ return "2"; } });
   const vxZeroLoss=()=>{ try{ const a=_acctNow()||vxAcct; const eq=_vxEquity(a,{...vxPricesRef.current}).equity; if(!(eq>0)) return false;
@@ -19268,13 +19271,13 @@ function App(){
       try{ setVxMsg("↺ "+({ru:"Убытки обнулены: отсчёт дня/недели/месяца и просадки начат с $"+Math.round(eq),he:"ההפסדים אופסו: ספירת יום/שבוע/חודש וירידה מהשיא החלה מ-$"+Math.round(eq),en:"Losses reset: day/week/month and drawdown counting restarted from $"+Math.round(eq)})[LANG]); }catch(e){}
       return true; }catch(e){ return false; } };
   const vxSetDdNum=(txt)=>{ setVxDdTxt(txt); const v=parseFloat(String(txt).replace(",",".")); if(v>=0&&v<=20){ const r=Math.round(v*10)/10; setVxDd(r); try{ localStorage.setItem("qe_vx_ddlim",String(r)); }catch(x){} } };
-  const budAdj=(sign)=>{ const n=_budNum(vxBudAdj); const a=_acctNow()||vxAcct; setVxBudConf(false); if(!(n>0)){ setVxBudErr(t("vxb_err_pos")); return; }
+  const budAdj=(sign)=>{ const n=(String(vxBudAdj||"").trim()===""&&String(vxBudVal||"").trim()!=="")?_budNum(vxBudVal):_budNum(vxBudAdj); _budTry({act:sign>0?"add":"take",amt:n,busy:!!vxAiBusy});   /* vc631: an amount typed in the upper box also works for + / − */ const a=_acctNow()||vxAcct; setVxBudConf(false); if(!(n>0)){ setVxBudErr(t("vxb_err_pos")); return; }
     if(vxAiBusy){ if(sign<0){ setVxBudErr(t("vxb_err_busy")); return; } if(a.start+n+(budPendRef.current||0)>1e7){ setVxBudErr(t("vxb_err_max")); return; }   /* vc626: a deposit during an AI session is queued and applied right after it (on a slow network sessions run almost back-to-back, so the old "wait and retry" made deposits practically impossible) */
       budPendRef.current=Math.round(((budPendRef.current||0)+n)*100)/100; setVxBudAdj(""); try{ window.QEVXLog.log("INFO","acct.deposit_queued",{amt:n,pending:budPendRef.current}); }catch(e){}
       setVxBudErr(({ru:"Идёт сессия ИИ — пополнение $"+budPendRef.current+" будет зачислено автоматически сразу после неё",he:"סשן AI פעיל — ההפקדה $"+budPendRef.current+" תיכנס אוטומטית מיד אחריו",en:"AI session running — the $"+budPendRef.current+" deposit will be applied automatically right after it"})[LANG]); return; }
     if(sign>0){ if(a.start+n>1e7){ setVxBudErr(t("vxb_err_max")); return; } }
     else { const fr=_budFree(); if(n>fr+1e-6){ setVxBudErr(_fill("vxb_err_free",{v:_vxM(fr)})); return; } if(a.start-n<1000){ setVxBudErr(t("vxb_err_min")); return; } }
-    vxAdjust(sign*Math.round(n*100)/100); setVxBudAdj(""); setVxBudErr(""); };
+    vxAdjust(sign*Math.round(n*100)/100); setVxBudAdj(""); setVxBudErr(""); try{ setVxMsg((sign>0?"＋ ":"− ")+_vxM(n)+" ✓"); }catch(e){} };
   const budModal=()=>{ if(!vxBud) return null; const a=vxAcct, q=_vxEquity(a,{...vxPricesRef.current}); const n=_budNum(vxBudVal);
     const inp=(val,set,ph)=>e("input",{type:"text",inputMode:"decimal",dir:"ltr",value:val,placeholder:ph,onChange:ev=>{ set(ev.target.value); setVxBudErr(""); setVxBudConf(false); },style:{width:"100%",boxSizing:"border-box",background:T.bg2,border:`1px solid ${T.border}`,color:T.text,borderRadius:"8px",padding:"9px",fontSize:"14px",fontFamily:"monospace",fontWeight:"800"}});
     const btn=(txt,fn,col,on)=>e("button",{onClick:fn,style:{flex:1,background:on?`${col}33`:`${col}18`,border:`1.5px solid ${col}`,color:col,padding:"9px 8px",borderRadius:"9px",fontSize:"10.5px",fontFamily:"monospace",fontWeight:"800",cursor:"pointer"}},txt);
@@ -19295,8 +19298,8 @@ function App(){
         vxBudErr?e("div",{style:{marginTop:"10px",fontSize:"10px",color:T.red,fontFamily:"monospace",lineHeight:1.45}},vxBudErr):null,
         vxMsg?e("div",{style:{marginTop:"10px",fontSize:"10px",color:T.green,fontFamily:"monospace",lineHeight:1.45}},vxMsg):null)); };
   // ── AI auto-play (demo): the app analyzes a few names with its own engine and trades ──
-  const [vxAiBusy,setVxAiBusy]=useState(false); const budPendRef=useRef(0);
-  useEffect(()=>{ if(vxAiBusy) return; const d=budPendRef.current; if(!(d>0)) return; budPendRef.current=0; try{ vxAdjust(d); window.QEVXLog.log("INFO","acct.deposit_applied",{amt:d}); setVxBudErr(""); }catch(e){} },[vxAiBusy]);   /* vc626 */
+  const [vxAiBusy,setVxAiBusy]=useState(false); const budPendRef=useRef(0); const budPendResetRef=useRef(0);
+  useEffect(()=>{ if(vxAiBusy) return; const nr=budPendResetRef.current; if(nr>0){ budPendResetRef.current=0; try{ vxReset(nr); window.QEVXLog.log("INFO","acct.reset_applied",{budget:nr}); setVxBudErr(""); setVxMsg("✓ $"+nr); }catch(e){} } const d=budPendRef.current; if(!(d>0)) return; budPendRef.current=0; try{ vxAdjust(d); window.QEVXLog.log("INFO","acct.deposit_applied",{amt:d}); setVxBudErr(""); }catch(e){} },[vxAiBusy]);   /* vc626 */
   const vxCandRef=useRef({ts:0,list:[]});   // cache of scanner-picked candidates (refreshed ~3 min)
   // GOAL = maximise profit: rank candidates by expected value, and manage open positions
   // toward realised gains (take profit on winners, cut losers).
