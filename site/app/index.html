@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.174</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.175</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.174";
+const QE_VERSION = "15.12.175";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -1605,19 +1605,40 @@ async function _fetchFree(symbol){
    view(): spread (bp), queue imbalance, OFI over 10 s/30 s normalised by the average top-of-book size. gate(): enter only if the book SUPPORTS the direction. */
 var QEBook=(function(){
   function ofi(p,c){ return (c.b>=p.b?c.B:0)-(c.b<=p.b?p.B:0)-(c.a<=p.a?c.A:0)+(c.a>=p.a?p.A:0); }
-  function push(bk,c,t){ var o=bk||{last:null,buckets:[]}; if(o.last){ var e=ofi(o.last,c), sec=Math.floor(t/1000), bu=o.buckets, l=bu[bu.length-1]; if(!l||l.s!==sec){ l={s:sec,e:0,q:0,n:0}; bu.push(l); if(bu.length>70) bu.shift(); } l.e+=e; l.q+=(c.B+c.A); l.n++; }
+  function push(bk,c,t){ var o=bk||{last:null,buckets:[]}; if(o.last){ var e=ofi(o.last,c), sec=Math.floor(t/1000), bu=o.buckets, l=bu[bu.length-1]; if(!l||l.s!==sec){ l={s:sec,e:0,q:0,n:0,d:0,u:0}; bu.push(l); if(bu.length>70) bu.shift(); } l.e+=e; l.q+=(c.B+c.A); l.n++; l.d+=(c.B-c.A); l.u+=(c.B*c.b+c.A*c.a); }
     o.last={b:c.b,B:c.B,a:c.a,A:c.A,t:t}; return o; }
   function win(o,now,secs){ var s0=Math.floor(now/1000)-secs, e=0, q=0, n=0; for(var i=0;i<o.buckets.length;i++){ var b=o.buckets[i]; if(b.s>=s0){ e+=b.e; q+=b.q; n+=b.n; } } return {e:e,avg:n?q/n:0,n:n}; }
-  function view(o,now){ now=now||Date.now(); if(!o||!o.last) return null; var L=o.last, mid=(L.a+L.b)/2, tot=L.B+L.A; var w10=win(o,now,10), w30=win(o,now,30);
-    return {age:now-L.t, spreadBp:mid>0?(L.a-L.b)/mid*1e4:null, imb:tot>0?(L.B-L.A)/tot:0, ofi10:w10.avg>0?w10.e/w10.avg:0, ofi30:w30.avg>0?w30.e/w30.avg:0, n10:w10.n}; }
+  /* vc621: smoothed queue imbalance over the last ~5 s (sum of (B-A) / sum of (B+A) over the 1-s buckets), persistence = share of 1-s buckets whose own imbalance has the same sign, size = mean top-of-book notional (USD) */
+  function sm5(o,now){ var s0=Math.floor(now/1000)-5, d=0,q=0,u=0,n=0,nb=0,pos=0,neg=0; for(var i=0;i<o.buckets.length;i++){ var b=o.buckets[i]; if(b.s>=s0&&b.n>0){ d+=b.d; q+=b.q; u+=b.u; n+=b.n; nb++; if(b.d>0) pos++; else if(b.d<0) neg++; } } var im=q>0?d/q:0; return {imb5:im, pers5:nb?(im>=0?pos:neg)/nb:0, nb5:nb, n5:n, usd5:n?u/n:0}; }
+  function view(o,now){ now=now||Date.now(); if(!o||!o.last) return null; var L=o.last, mid=(L.a+L.b)/2, tot=L.B+L.A; var w10=win(o,now,10), w30=win(o,now,30), z=sm5(o,now);
+    return {age:now-L.t, spreadBp:mid>0?(L.a-L.b)/mid*1e4:null, imb:tot>0?(L.B-L.A)/tot:0, imb5:z.imb5, pers5:z.pers5, nb5:z.nb5, usd5:z.usd5, ofi10:w10.avg>0?w10.e/w10.avg:0, ofi30:w30.avg>0?w30.e/w30.avg:0, n10:w10.n}; }
+  /* vc621: REST depth (Binance /api/v3/depth: bids/asks as [price,qty]). Distance-weighted imbalance (weight exp(-dist_bp/10) from mid, so far-away orders - the usual spoofing zone - count little) and slippage (bp vs mid) of walking the book with our notional. */
+  function depthView(d,notional,opt){ opt=opt||{}; var tau=opt.tauBp||10;
+    if(!d||!d.bids||!d.asks||!d.bids.length||!d.asks.length) return null;
+    var bb=+d.bids[0][0], aa=+d.asks[0][0]; if(!(bb>0&&aa>0)) return null; var mid=(bb+aa)/2, wb=0, wa=0, i, p, q, dist, qs=d.bids.concat(d.asks).map(function(x){return +x[1];}).sort(function(x,y){return x-y;}), cap=Math.max(qs[qs.length>>1]*5,1e-12);   /* per-level size capped at 5x the median level: one giant (possibly spoofed) order cannot decide the signal */
+    for(i=0;i<d.bids.length;i++){ p=+d.bids[i][0]; q=Math.min(+d.bids[i][1],cap); dist=Math.abs(mid-p)/mid*1e4; wb+=q*Math.exp(-dist/tau); }
+    for(i=0;i<d.asks.length;i++){ p=+d.asks[i][0]; q=Math.min(+d.asks[i][1],cap); dist=Math.abs(p-mid)/mid*1e4; wa+=q*Math.exp(-dist/tau); }
+    function walk(side){ var need=notional, got=0, cost=0, k, pr, qt, take; for(k=0;k<side.length&&need>1e-9;k++){ pr=+side[k][0]; qt=+side[k][1]; take=Math.min(need/pr,qt); cost+=take*pr; got+=take; need-=take*pr; } if(need>notional*0.02||got<=0) return null; return cost/got; }
+    var buyPx=notional>0?walk(d.asks):aa, sellPx=notional>0?walk(d.bids):bb;
+    return {imbD:(wb+wa)>0?(wb-wa)/(wb+wa):0, slipBuyBp:buyPx?(buyPx-mid)/mid*1e4:null, slipSellBp:sellPx?(mid-sellPx)/mid*1e4:null, levels:Math.min(d.bids.length,d.asks.length), thin:buyPx==null||sellPx==null}; }
+  /* dir=+1 long (we buy asks to enter) / -1 short (we sell into bids to enter). Soft: no depth -> allowed. */
+  function depthGate(dv,dir,opt){ opt=opt||{}; var maxSlip=opt.maxSlipBp||5, minD=opt.minImbD!=null?opt.minImbD:0;
+    if(!dv) return {block:false,why:"no_depth"};
+    if(dv.thin) return {block:true,why:"depth_thin",dv:dv};
+    var sl=dir>0?dv.slipBuyBp:dv.slipSellBp; if(sl!=null&&sl>maxSlip) return {block:true,why:"slippage",dv:dv};
+    if(dir*dv.imbD<minD) return {block:true,why:"depth_against",dv:dv};
+    return {block:false,why:"ok",dv:dv}; }
   /* dir=+1 long / -1 short. soft: no/stale book -> allowed (never blocks on missing data). */
-  function gate(v,dir,opt){ opt=opt||{}; var maxSp=opt.maxSpreadBp||4, minImb=opt.minImb!=null?opt.minImb:0.1, maxAge=opt.maxAgeMs||3000;
+  function gate(v,dir,opt){ opt=opt||{}; var maxSp=opt.maxSpreadBp||4, minImb=opt.minImb!=null?opt.minImb:0.1, maxAge=opt.maxAgeMs||3000, minPers=opt.minPers!=null?opt.minPers:0.6, minUsd=opt.minUsd!=null?opt.minUsd:1000;
     if(!v||v.age>maxAge||v.n10<3) return {block:false,why:"no_book",bk:v||null};
     if(v.spreadBp!=null&&v.spreadBp>maxSp) return {block:true,why:"wide_spread",bk:v};
-    if(dir*v.imb<minImb) return {block:true,why:"imbalance",bk:v};
+    var sm=(v.nb5!=null&&v.nb5>=3), im=sm?v.imb5:v.imb;   /* smoothed 5 s value when >=3 seconds of data, else the instant one */
+    if(sm&&v.usd5<minUsd) return {block:true,why:"thin_book",bk:v};
+    if(dir*im<minImb) return {block:true,why:"imbalance",bk:v};
+    if(sm&&(dir*v.imb5>0)&&v.pers5<minPers) return {block:true,why:"unstable",bk:v};
     if(dir*v.ofi10<0) return {block:true,why:"ofi_against",bk:v};
     return {block:false,why:"ok",bk:v}; }
-  return {ofi:ofi,push:push,view:view,gate:gate};
+  return {ofi:ofi,push:push,view:view,gate:gate,depthView:depthView,depthGate:depthGate};
 })();
 try{ window.QEBook=QEBook; }catch(e){}
 const QEBin=(function(){
@@ -1677,6 +1698,14 @@ const QEBin=(function(){
   function want(p){ sWant[p]=Date.now(); if(Object.keys(sWant).length>150){ let o=null; Object.keys(sWant).forEach(k=>{ if(!o||sWant[k]<sWant[o]) o=k; }); delete sWant[o]; }
     if(!ws){ if(!sTimer) sOpenWs(); } else if(sOpen&&!sSubs[p]) sSync(); }
   function book(sym){ const p=pair(sym); if(!p) return null; const fresh=!bWant[p]; bWant[p]=Date.now(); want(p); if(fresh&&sOpen) sSync(); return QEBook.view(books[p]); }
+  /* vc621: REST depth peek - sync: returns the cached view (<=4 s old) or {st:"wait"} and starts a fetch; after a failed fetch {st:"fail"} for 60 s (soft: caller allows) */
+  const dcache={};
+  function depthPeek(sym,notional){ const p=pair(sym); if(!p) return {st:"fail"}; const c=dcache[p]; const now=Date.now();
+    if(c&&c.d&&now-c.ts<4000) return {st:"ok",dv:QEBook.depthView(c.d,notional)};
+    if(c&&c.fail&&now-c.fail<60000) return {st:"fail"};
+    if(!c||!c.busy){ const o=dcache[p]=c||{}; o.busy=true; get("/api/v3/depth?symbol="+p+"&limit=20").then(j=>{ o.d=j; o.ts=Date.now(); o.busy=false; o.fail=0; }).catch(e=>{ o.busy=false; o.fail=Date.now(); mark(sym,e); }); }
+    return {st:"wait"}; }
+  function injectDepth(sym,d){ const p=pair(sym); if(p) dcache[p]={d:d,ts:Date.now(),busy:false,fail:0}; }
   function live(p){ const t=ticks[p]; return (sOpen&&t&&Date.now()-t.ts<4000)?t:null; }
   try{ setInterval(()=>{ try{
       const now=Date.now(); let ch=false; Object.keys(sWant).forEach(p=>{ if(now-sWant[p]>300000){ delete sWant[p]; ch=true; } }); Object.keys(bWant).forEach(p=>{ if(now-bWant[p]>120000){ delete bWant[p]; ch=true; } }); if(ch) sSync();
@@ -1752,7 +1781,7 @@ const QEBin=(function(){
   /* vc589: the MOST VOLATILE liquid coins (24h range %, >= 20M USDT turnover) - BTC/ETH barely move 6 bp in 30 s, which cannot beat the 0.10 %/side fee */
   function volTop(n){ if(!uni||uni.length<10) return null; const l=uni.filter(x=>x.price>=0.01&&x.qv>=2e7&&x.rng!=null&&isFinite(x.rng)); if(l.length<8) return null; return l.slice().sort((a,b)=>b.rng-a.rng).slice(0,n||16).map(x=>x.base+"-USD"); }
   function refreshIf(ms){ if(!uni||Date.now()-uniTs>(ms||3e5)) return refresh(true); return Promise.resolve(uni); }
-  return { injectBook:(sym,c)=>{ const p=pair(sym); if(!p) return false; bWant[p]=Date.now(); books[p]=QEBook.push(books[p],c,Date.now()); return true; }, book, pair, quote, streaming:(sym)=>{ const p=pair(sym); return !!(p&&live(p)); }, watch:(l)=>{ (l||[]).forEach(x=>{ const p=pair(x); if(p) want(p); }); }, wsInfo:()=>({open:sOpen,subs:Object.keys(sSubs).length,msgs:sMsgs,opens:sOpens,off:Date.now()<sOffUntil}), klines, ohlc, intraday, history, refresh, refreshIf, top, volTop, info:()=>({coins:uni?uni.length:0,age:uni?Math.round((Date.now()-uniTs)/1000):null,off:Date.now()<offUntil,err:lastErr}) };
+  return { depthPeek, injectDepth, injectBook:(sym,c)=>{ const p=pair(sym); if(!p) return false; bWant[p]=Date.now(); books[p]=QEBook.push(books[p],c,Date.now()); return true; }, book, pair, quote, streaming:(sym)=>{ const p=pair(sym); return !!(p&&live(p)); }, watch:(l)=>{ (l||[]).forEach(x=>{ const p=pair(x); if(p) want(p); }); }, wsInfo:()=>({open:sOpen,subs:Object.keys(sSubs).length,msgs:sMsgs,opens:sOpens,off:Date.now()<sOffUntil}), klines, ohlc, intraday, history, refresh, refreshIf, top, volTop, info:()=>({coins:uni?uni.length:0,age:uni?Math.round((Date.now()-uniTs)/1000):null,off:Date.now()<offUntil,err:lastErr}) };
 })();
 try{ window.QEBin=QEBin; setTimeout(()=>{ try{ QEBin.refresh(false); }catch(e){} },4000); setInterval(()=>{ try{ QEBin.refresh(false); }catch(e){} },3600e3); }catch(e){}
 
@@ -6903,6 +6932,7 @@ var QEDiag=(function(){
     o.book=gs(wb); o.nobook=gs(nb);
     var m=h.filter(function(x){return x.mfe!=null&&x.mae!=null;}); o.nm=m.length;
     if(m.length){ var th=opt.thr||0.35; o.mfeMed=med(m.map(function(x){return x.mfe;})); o.maeMed=med(m.map(function(x){return x.mae;})); o.fwdReach=m.filter(function(x){return x.mfe>=th;}).length/m.length; o.revReach=m.filter(function(x){return x.mae>=th;}).length/m.length; o.thr=th; o.holdMed=med(m.map(function(x){return x.hold||0;})); }
+    var t60=opt.thr60||0.1, z=h.filter(function(x){return x.m60!=null;}); o.n60=z.length; if(z.length){ o.thr60=t60; o.u60=z.filter(function(x){return x.m60<t60;}).length/z.length; var zb=z.filter(function(x){return x.bk&&x.bk.why==="ok";}); o.n60b=zb.length; o.u60b=zb.length?zb.filter(function(x){return x.m60<t60;}).length/zb.length:null; }
     return o; }
   return {summarize:summarize};
 })();
@@ -15556,7 +15586,7 @@ function ScalpDiag(props){
     none:{ru:"Нет закрытых сделок",he:"אין עסקאות סגורות",en:"No closed trades"},
     sm:{ru:"сделок {n} · прибыльных {w}% · ср. плюс {aw} · ср. минус {al} · чтобы выйти в ноль нужно {be}% побед · итого {s}",he:"עסקאות {n} · רווחיות {w}% · רווח ממוצע {aw} · הפסד ממוצע {al} · לאפס נדרשים {be}% ניצחונות · סה״כ {s}",en:"trades {n} · winners {w}% · avg win {aw} · avg loss {al} · breakeven needs {be}% winners · total {s}"},
     mm:{ru:"Ход цены после входа ({m} сделок): медиана максимума в плюс {f}%, в минус {a}%, держали {h} с. Дошли до +{t}%: {fr}% сделок; дошли до −{t}% (обратная сторона заработала бы): {rr}%",he:"תנועת מחיר אחרי כניסה ({m} עסקאות): חציון מקסימום ברווח {f}%, בהפסד {a}%, החזקה {h} שנ׳. הגיעו ל-+{t}%: {fr}%; הגיעו ל-−{t}% (הצד ההפוך היה מרוויח): {rr}%",en:"Price path after entry ({m} trades): median best {f}%, worst {a}%, held {h}s. Reached +{t}%: {fr}%; reached −{t}% (the opposite side would have won): {rr}%"},
-    bk:{ru:"Со стаканом (поддержал вход): {a} сделок, {aw}% прибыльных, {as}; без данных стакана: {b} сделок, {bw}% , {bs}",he:"עם ספר הוראות (תמך בכניסה): {a} עסקאות, {aw}% רווחיות, {as}; בלי נתוני ספר: {b} עסקאות, {bw}%, {bs}",en:"With order book (supported entry): {a} trades, {aw}% winners, {as}; without book data: {b} trades, {bw}%, {bs}"}, why:{ru:"По выходам",he:"לפי יציאה",en:"By exit"}, side:{ru:"По сторонам",he:"לפי צד",en:"By side"}, hint:{ru:"Данные хода цены копятся с версии 15.12.174",he:"נתוני מסלול המחיר נצברים מגרסה 15.12.174",en:"Price-path data accumulates from 15.12.174"}};
+    bk:{ru:"Со стаканом (поддержал вход): {a} сделок, {aw}% прибыльных, {as}; без данных стакана: {b} сделок, {bw}% , {bs}",he:"עם ספר הוראות (תמך בכניסה): {a} עסקאות, {aw}% רווחיות, {as}; בלי נתוני ספר: {b} עסקאות, {bw}%, {bs}",en:"With order book (supported entry): {a} trades, {aw}% winners, {as}; without book data: {b} trades, {bw}%, {bs}"}, why:{ru:"По выходам",he:"לפי יציאה",en:"By exit"}, side:{ru:"По сторонам",he:"לפי צד",en:"By side"}, u60:{ru:"Сигнал не сработал за 60 с (цена не ушла в нашу сторону даже на +{t}%): {u}% из {n} сделок; из них со стаканом «ок»: {ub}% из {nb}",he:"האות לא פעל תוך 60 שנ׳ (המחיר לא זז לכיוון שלנו אפילו +{t}%): {u}% מתוך {n} עסקאות; מהן עם ספר «תקין»: {ub}% מתוך {nb}",en:"Signal did not work within 60 s (price never moved our way even +{t}%): {u}% of {n} trades; with book 'ok': {ub}% of {nb}"}, hint:{ru:"Данные хода цены копятся с версии 15.12.175",he:"נתוני מסלול המחיר נצברים מגרסה 15.12.175",en:"Price-path data accumulates from 15.12.175"}};
   const L=(k)=>(X[k][LG]||X[k].en); const fm=(v)=>(v>=0?"+$":"−$")+Math.abs(v).toFixed(2);
   let D={n:0}; try{ D=window.QEDiag.summarize(props.getHist?props.getHist():[]); }catch(_){}
   const fill=(t,o)=>t.replace(/\{(\w+)\}/g,(_,k)=>(o[k]!=null?o[k]:""));
@@ -15569,6 +15599,7 @@ function ScalpDiag(props){
         e("div",{key:"b",style:{marginTop:"4px",fontFamily:"monospace"}},L("why")+": "+grpTxt(D.byWhy)),
         D.book&&D.book.n?e("div",{key:"bk",style:{fontFamily:"monospace"}},fill(L("bk"),{a:D.book.n,aw:Math.round(D.book.w*100),as:fm(D.book.sum),b:D.nobook.n,bw:Math.round(D.nobook.w*100),bs:fm(D.nobook.sum)})):null,
         e("div",{key:"c",style:{fontFamily:"monospace"}},L("side")+": "+grpTxt(D.bySide)),
+        D.n60?e("div",{key:"u60","data-testid":"diag-u60",style:{marginTop:"4px"}},fill(L("u60"),{t:D.thr60,u:Math.round(D.u60*100),n:D.n60,ub:D.u60b!=null?Math.round(D.u60b*100):"—",nb:D.n60b})):null,
         D.nm?e("div",{key:"d",style:{marginTop:"4px"}},fill(L("mm"),{m:D.nm,f:D.mfeMed.toFixed(2),a:D.maeMed.toFixed(2),h:Math.round(D.holdMed),t:D.thr,fr:Math.round(D.fwdReach*100),rr:Math.round(D.revReach*100)})):e("div",{key:"e",style:{marginTop:"4px",color:T.gray1}},L("hint"))]));
 }
 function H4Box(props){
@@ -19979,7 +20010,7 @@ function App(){
     return {dir:dir,rv:rv,dev:dev,mv:mv,mv5:mv5,band:band,p:p,score:Math.abs(mv)/band}; };
   const _tbPush=(tk,px)=>{ const R=tbRef.current, now=Date.now(); const b=R.buf[tk]||(R.buf[tk]=[]); b.push({t:now,p:px}); while(b.length&&now-b[0].t>90000) b.shift(); if(b.length>60) b.shift(); return b; };
   const _tbQuote=async(tk)=>{ return await Promise.race([ _vxQuote(tk,{force:true}), new Promise(res=>setTimeout(()=>res(null),4500)) ]); };
-  const _tbRecord=(r,tk,sd,why,heldS,th0)=>{ try{ const S=_scLoad(); S.hist=(S.hist||[]).concat([{ts:Date.now(),tk:tk,net:+r.net.toFixed(2),why:why,side:sd,turbo:1,mfe:th0?(th0.pk||0):undefined,mae:th0?(th0.mae||0):undefined,hold:Math.round(heldS||0),sp:th0&&th0.scalpSig?th0.scalpSig.sp:undefined,bk:th0?th0.bk:undefined}]).slice(-150); S.w=(S.w||[]).concat([r.net]).slice(-20); S.dayPnl=+((S.dayPnl||0)+r.net).toFixed(2); S.dayN=(S.dayN||0)+1; _scSave(S); const R=tbRef.current; R.n++; R.net+=r.net; try{ window.QEVXLog.log("INFO","scalp.exit "+tk,{act:why,side:sd>0?"long":"short",net:+r.net.toFixed(2),held:+(heldS/60).toFixed(2),turbo:true}); }catch(e){} setVxMsg("⚡ "+(r.net>=0?"✓ ":"✕ ")+tk+" "+_vxUSD(r.net,true)); }catch(e){} };
+  const _tbRecord=(r,tk,sd,why,heldS,th0)=>{ try{ const S=_scLoad(); S.hist=(S.hist||[]).concat([{ts:Date.now(),tk:tk,net:+r.net.toFixed(2),why:why,side:sd,turbo:1,mfe:th0?(th0.pk||0):undefined,mae:th0?(th0.mae||0):undefined,hold:Math.round(heldS||0),sp:th0&&th0.scalpSig?th0.scalpSig.sp:undefined,bk:th0?th0.bk:undefined,m60:th0&&th0.m60!=null?th0.m60:(th0?0:undefined)}]).slice(-150); S.w=(S.w||[]).concat([r.net]).slice(-20); S.dayPnl=+((S.dayPnl||0)+r.net).toFixed(2); S.dayN=(S.dayN||0)+1; _scSave(S); const R=tbRef.current; R.n++; R.net+=r.net; try{ window.QEVXLog.log("INFO","scalp.exit "+tk,{act:why,side:sd>0?"long":"short",net:+r.net.toFixed(2),held:+(heldS/60).toFixed(2),turbo:true}); }catch(e){} setVxMsg("⚡ "+(r.net>=0?"✓ ":"✕ ")+tk+" "+_vxUSD(r.net,true)); }catch(e){} };
   const _tbClose=(tk,px,why)=>{ const acct=_tbAcct(); if(!acct) return null; const p=acct.positions.find(x=>x.ticker===tk&&x.qty!==0); if(!p) return null; const sd=p.qty>0?1:-1; const mem=_loadAi(); const th=mem.open&&mem.open[tk]; const q=Math.abs(p.qty); const openTs=p.openTs||(th&&th.ts)||Date.now();
     let r; try{ r=_vxApply(acct,sd>0?"sell":"buy",tk,q,px,_vxFeeFor(q,px,tk),"ai",{limitMin:0,reason:"scalp_"+why,openTs:openTs,scalp:true}); }catch(e){ r={ok:false}; } if(!r.ok) return null;
     _saveVX(r.acct); setVxPrices(prev=>({...prev,[tk]:px})); if(th){ delete mem.open[tk]; _saveAi(mem); } _tbRecord(r,tk,sd,why,(Date.now()-openTs)/1000*1,th); return {net:r.net,sd:sd}; };
@@ -20027,7 +20058,13 @@ function App(){
       { const DDv=parseFloat(localStorage.getItem("qe_vx_ddlim")), LIM=(DDv>=0&&DDv<=20)?DDv:2; if(LIM>0 && CT.dayDD<=-LIM) return {block:"day_limit",CT:CT}; }   /* account day-loss limit: the controller stops NEW scalps too */
       const g=QECtl.entry(CT,dir,false); if(g.block) return {block:g.reason,CT:CT};
       { const TG=QETrend.gate(tk,dir,px,!slow); if(TG.block) return {block:"counter_trend",CT:CT,TR:TG.tr}; }   /* vc615: falling -> only short, rising -> only long */
-      let BKs=null; if(!slow && cr){ try{ if(localStorage.getItem("qe_book")!=="0"){ const BV=QEBin.book(tk), BG=QEBook.gate(BV,dir); BKs=BV?{imb:+BV.imb.toFixed(2),ofi:+BV.ofi10.toFixed(2),spr:BV.spreadBp!=null?+BV.spreadBp.toFixed(1):null,why:BG.why}:{why:"no_book"}; if(BG.block) return {block:"book_"+BG.why,CT:CT,BK:BKs}; } }catch(e){} }   /* vc620: order-book gate (spread, queue imbalance, order-flow imbalance must support the direction) */
+      let BKs=null; if(!slow && cr){ try{ if(localStorage.getItem("qe_book")!=="0"){ const BV=QEBin.book(tk), BG=QEBook.gate(BV,dir); BKs=BV?{imb:+BV.imb.toFixed(2),ofi:+BV.ofi10.toFixed(2),spr:BV.spreadBp!=null?+BV.spreadBp.toFixed(1):null,why:BG.why}:{why:"no_book"}; if(BG.block) return {block:"book_"+BG.why,CT:CT,BK:BKs};
+        if(BV&&BV.imb5!=null&&BV.nb5>=3){ BKs.i5=+BV.imb5.toFixed(2); BKs.pe=+BV.pers5.toFixed(2); }
+        if(BG.why==="ok"||BG.why==="no_book"){   /* vc621: REST depth (multi-level, distance-weighted) + slippage for OUR order size */
+          const DP=QEBin.depthPeek(tk,qty*px);
+          if(DP.st==="wait") return {block:"book_depth_wait",CT:CT,BK:BKs};
+          if(DP.st==="ok"&&DP.dv){ const DG=QEBook.depthGate(DP.dv,dir); BKs.dd=+DP.dv.imbD.toFixed(2); BKs.sl=+(dir>0?DP.dv.slipBuyBp:DP.dv.slipSellBp||0).toFixed(1); if(DG.block) { BKs.why=DG.why; return {block:"book_"+DG.why,CT:CT,BK:BKs}; } }
+        } } }catch(e){} }   /* vc620: order-book gate (spread, queue imbalance, order-flow imbalance must support the direction) */
       let q=qty; const mm=CT.scalpMult; if(mm>0&&mm<1) q=cr?Math.floor(q*mm*1e6)/1e6:Math.floor(q*mm);
       const mx=QECtl.fit(CT,px,stopPct,cr); if(cr?(mx*px<10):(mx<1)) return {block:"heat",CT:CT}; q=Math.min(q,mx);
       if(cr?(q*px<10):(q<1)) return {block:"size",CT:CT}; return {qty:q,CT:CT,mult:mm,bk:BKs}; }catch(e){ return {qty:qty}; } };
@@ -20053,6 +20090,7 @@ function App(){
     const acct=_tbAcct(); const p=acct&&acct.positions.find(x=>x.ticker===tk&&x.qty!==0); const mem=_loadAi(); const th=mem.open&&mem.open[tk]; if(!p||!(th&&th.scalp)){ h.alive=false; return; }   // closed by the user / heavy cycle while we waited
     const sd=p.qty>0?1:-1; h.side=sd>0?"long":"short"; const qn=Math.abs(p.qty), exitFee=_vxFeeFor(qn,px,tk); const netUsd=sd*(px-p.avg)*qn-exitFee-(p.fees||0); const fav=sd*(px-p.avg)/p.avg*100; h.fav=+fav.toFixed(3);
     { const CRs=_isCryptoTk(tk); let dirty=false; if(fav>(th.pk||0)){ th.pk=+fav.toFixed(4); dirty=true; } if(-fav>(th.mae||0)){ th.mae=+(-fav).toFixed(4); dirty=true; }   /* vc619: MFE/MAE per trade (diagnostics) */
+      if(!th.m60d){ const hm=now-(p.openTs||th.ts||now); if(fav>(th.m60||0)){ th.m60=+fav.toFixed(4); dirty=true; } if(hm>=60000){ th.m60d=1; dirty=true; } }   /* vc621: best favourable move within the first 60 s (the book signal horizon) */
       const spp=(th.scalpSig&&th.scalpSig.sp)||0; if(CRs&&spp>0&&!th.be&&fav>=spp){ const ns=+(p.avg*(1+sd*0.003)).toFixed(4); if(sd>0?ns>th.stop:ns<th.stop){ th.stop=ns; th.be=1; dirty=true; try{ window.QEVXLog.log("INFO","scalp.be "+tk,{stop:ns}); }catch(e){} } }   /* +1R reached: stop to breakeven+0.3 % (a stop move, not a discretionary exit) */
       if(dirty&&(!h.pkSave||now-h.pkSave>15000)){ h.pkSave=now; _saveAi(mem); } }
     const heldMs=now-(p.openTs||th.ts||now); const m=_tbMicro(buf,now,_isCryptoTk(tk)); if(m&&(m.rv===-sd||m.dir===-sd)) h.rev++; else h.rev=0;
