@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.178</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.179</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.178";
+const QE_VERSION = "15.12.179";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -1641,6 +1641,28 @@ var QEBook=(function(){
   return {ofi:ofi,push:push,view:view,gate:gate,depthView:depthView,depthGate:depthGate};
 })();
 try{ window.QEBook=QEBook; }catch(e){}
+/* ============ QECandle (vc625) - "long candle" scalping rule (pure) ============
+   Owner rule: look for a LONG candle, enter in its direction while price is NOT at the candle's ends, leave before the candle ends.
+   Interpretation (flagged): long = range >= mult x mean range of the last 20 closed candles AND >= minPct (crypto 0.5 %); direction = sign(price-open) with body >= 35 % of the range;
+   "not at the ends" = position in the range between 25 % and 75 %; enough time left (>= max(30 s, 15 % of the candle)). */
+var QECandle=(function(){
+  function evalC(kl,px,now,tfMs,opt){ opt=opt||{}; var mult=opt.mult||1.5, minPct=opt.minPct!=null?opt.minPct:0.5, lo=opt.lo!=null?opt.lo:0.25, hi=opt.hi!=null?opt.hi:0.75, minBody=opt.minBody||0.35;
+    if(!kl||kl.length<12||!(px>0)) return {ok:false,why:"short_hist"};
+    var t0=Math.floor(now/tfMs)*tfMs, last=kl[kl.length-1], cur, done;
+    if(last.t>=t0){ cur={t:last.t,open:last.open,high:last.high,low:last.low}; done=kl.slice(0,-1); } else { cur={t:t0,open:px,high:px,low:px}; done=kl.slice(); }
+    cur.high=Math.max(cur.high,px); cur.low=Math.min(cur.low,px); if(done.length<10) return {ok:false,why:"short_hist"};
+    var rs=done.slice(-20).map(function(k){ return k.open>0?(k.high-k.low)/k.open*100:0; }), avg=rs.reduce(function(a,b){return a+b;},0)/rs.length;
+    var rng=cur.high-cur.low, rp=cur.open>0?rng/cur.open*100:0, endTs=cur.t+tfMs, rem=endTs-now;
+    var o={ok:false,why:"",dir:0,rangePct:+rp.toFixed(3),avgPct:+avg.toFixed(3),pos:null,remMs:rem,endTs:endTs,tf:tfMs};
+    if(!(rng>0)||rp<Math.max(minPct,mult*avg)){ o.why="not_long"; return o; }
+    var body=px-cur.open; o.dir=body>0?1:(body<0?-1:0); o.pos=+((px-cur.low)/rng).toFixed(3);
+    if(!o.dir||Math.abs(body)/rng<minBody){ o.why="doji"; return o; }
+    if(o.pos<lo||o.pos>hi){ o.why="at_edge"; return o; }
+    if(rem<Math.max(30000,0.15*tfMs)){ o.why="late"; return o; }
+    o.ok=true; o.why="ok"; return o; }
+  return {eval:evalC};
+})();
+try{ window.QECandle=QECandle; }catch(e){}
 const QEBin=(function(){
   const HOSTS=["data-api.binance.vision","api.binance.com","api.binance.us"];
   const STABLE={USDT:1,USDC:1,FDUSD:1,TUSD:1,BUSD:1,DAI:1,USDP:1,USDD:1,EUR:1,GBP:1,AEUR:1,UST:1,PYUSD:1,XUSD:1,USD1:1};
@@ -15585,7 +15607,7 @@ function ScalpDiag(props){
     none:{ru:"Нет закрытых сделок",he:"אין עסקאות סגורות",en:"No closed trades"},
     sm:{ru:"сделок {n} · прибыльных {w}% · ср. плюс {aw} · ср. минус {al} · чтобы выйти в ноль нужно {be}% побед · итого {s}",he:"עסקאות {n} · רווחיות {w}% · רווח ממוצע {aw} · הפסד ממוצע {al} · לאפס נדרשים {be}% ניצחונות · סה״כ {s}",en:"trades {n} · winners {w}% · avg win {aw} · avg loss {al} · breakeven needs {be}% winners · total {s}"},
     mm:{ru:"Ход цены после входа ({m} сделок): медиана максимума в плюс {f}%, в минус {a}%, держали {h} с. Дошли до +{t}%: {fr}% сделок; дошли до −{t}% (обратная сторона заработала бы): {rr}%",he:"תנועת מחיר אחרי כניסה ({m} עסקאות): חציון מקסימום ברווח {f}%, בהפסד {a}%, החזקה {h} שנ׳. הגיעו ל-+{t}%: {fr}%; הגיעו ל-−{t}% (הצד ההפוך היה מרוויח): {rr}%",en:"Price path after entry ({m} trades): median best {f}%, worst {a}%, held {h}s. Reached +{t}%: {fr}%; reached −{t}% (the opposite side would have won): {rr}%"},
-    bk:{ru:"Со стаканом (поддержал вход): {a} сделок, {aw}% прибыльных, {as}; без данных стакана: {b} сделок, {bw}% , {bs}",he:"עם ספר הוראות (תמך בכניסה): {a} עסקאות, {aw}% רווחיות, {as}; בלי נתוני ספר: {b} עסקאות, {bw}%, {bs}",en:"With order book (supported entry): {a} trades, {aw}% winners, {as}; without book data: {b} trades, {bw}%, {bs}"}, why:{ru:"По выходам",he:"לפי יציאה",en:"By exit"}, side:{ru:"По сторонам",he:"לפי צד",en:"By side"}, u60:{ru:"Сигнал не сработал за 60 с (цена не ушла в нашу сторону даже на +{t}%): {u}% из {n} сделок; из них со стаканом «ок»: {ub}% из {nb}",he:"האות לא פעל תוך 60 שנ׳ (המחיר לא זז לכיוון שלנו אפילו +{t}%): {u}% מתוך {n} עסקאות; מהן עם ספר «תקין»: {ub}% מתוך {nb}",en:"Signal did not work within 60 s (price never moved our way even +{t}%): {u}% of {n} trades; with book 'ok': {ub}% of {nb}"}, hint:{ru:"Данные хода цены копятся с версии 15.12.178",he:"נתוני מסלול המחיר נצברים מגרסה 15.12.178",en:"Price-path data accumulates from 15.12.178"}};
+    bk:{ru:"Со стаканом (поддержал вход): {a} сделок, {aw}% прибыльных, {as}; без данных стакана: {b} сделок, {bw}% , {bs}",he:"עם ספר הוראות (תמך בכניסה): {a} עסקאות, {aw}% רווחיות, {as}; בלי נתוני ספר: {b} עסקאות, {bw}%, {bs}",en:"With order book (supported entry): {a} trades, {aw}% winners, {as}; without book data: {b} trades, {bw}%, {bs}"}, why:{ru:"По выходам",he:"לפי יציאה",en:"By exit"}, side:{ru:"По сторонам",he:"לפי צד",en:"By side"}, u60:{ru:"Сигнал не сработал за 60 с (цена не ушла в нашу сторону даже на +{t}%): {u}% из {n} сделок; из них со стаканом «ок»: {ub}% из {nb}",he:"האות לא פעל תוך 60 שנ׳ (המחיר לא זז לכיוון שלנו אפילו +{t}%): {u}% מתוך {n} עסקאות; מהן עם ספר «תקין»: {ub}% מתוך {nb}",en:"Signal did not work within 60 s (price never moved our way even +{t}%): {u}% of {n} trades; with book 'ok': {ub}% of {nb}"}, hint:{ru:"Данные хода цены копятся с версии 15.12.179",he:"נתוני מסלול המחיר נצברים מגרסה 15.12.179",en:"Price-path data accumulates from 15.12.179"}};
   const L=(k)=>(X[k][LG]||X[k].en); const fm=(v)=>(v>=0?"+$":"−$")+Math.abs(v).toFixed(2);
   let D={n:0}; try{ D=window.QEDiag.summarize(props.getHist?props.getHist():[]); }catch(_){}
   const fill=(t,o)=>t.replace(/\{(\w+)\}/g,(_,k)=>(o[k]!=null?o[k]:""));
@@ -15620,10 +15642,12 @@ function ScalpSettings(props){
       row("pct",tr({ru:"Доля счёта на скальпинг, % (0–50)",he:"חלק מהחשבון לסקאלפינג, % (0–50)",en:"Account share for scalping, % (0–50)"}),num("ss-pct",pTxt,onP)),
       row("tb",tr({ru:"Турбо-потоки (по потоку на сделку)",he:"תהליכי טורבו",en:"Turbo threads (one per trade)"}),e("button",{"data-testid":"ss-tb",onClick:()=>props.setTbOn(!props.tbOn),style:btn(props.tbOn,T.gold)},props.tbOn?"ON":"OFF")),
       row("tr",tr({ru:"Фильтр тренда (падает→шорт, растёт→лонг)",he:"פילטר מגמה",en:"Trend filter (falling→short, rising→long)"}),e("button",{"data-testid":"ss-trend",onClick:()=>setFlag("qe_trend",!flag("qe_trend")),style:btn(flag("qe_trend"),T.green)},flag("qe_trend")?"ON":"OFF")),
+      row("cd",tr({ru:"Свечной режим (длинная свеча, вход в середине, выход до конца свечи; крипто)",he:"מצב נרות (נר ארוך, כניסה באמצע, יציאה לפני סוף הנר)",en:"Candle mode (long candle, enter mid-range, exit before the candle ends; crypto)"}),e("button",{"data-testid":"ss-candle",onClick:()=>setFlag("qe_candle",!flag("qe_candle")),style:btn(flag("qe_candle"),T.gold)},flag("qe_candle")?"ON":"OFF")),
+      row("tf",tr({ru:"Свеча, минут",he:"נר, דקות",en:"Candle, minutes"}),e("div",{style:{display:"flex",gap:"4px"}},[1,5,15].map(v=>e("button",{key:v,"data-testid":"ss-tf"+v,onClick:()=>{ try{ localStorage.setItem("qe_candle_tf",String(v)); }catch(_){} setN(x=>x+1); },style:btn(parseInt(ls("qe_candle_tf","5"))===v,T.cyan)},String(v))))),
       row("bk",tr({ru:"Фильтр стакана (крипто)",he:"פילטר ספר הוראות",en:"Order-book filter (crypto)"}),e("button",{"data-testid":"ss-book",onClick:()=>setFlag("qe_book",!flag("qe_book")),style:btn(flag("qe_book"),T.cyan)},flag("qe_book")?"ON":"OFF")),
       row("dd",tr({ru:"Дневной лимит убытка, % (0 = выкл, до 20)",he:"מגבלת הפסד יומית, % (0 = כבוי)",en:"Daily loss limit, % (0 = off, max 20)"}),num("ss-dd",props.vxDdTxt,props.setDdNum)),
       e("button",{"data-testid":"ss-reset",onClick:zeroTap,style:{marginTop:"8px",width:"100%",background:zc?T.red+"22":"transparent",border:"1.5px solid "+(zc?T.red:T.border),color:zc?T.red:T.text,padding:"8px 0",fontSize:"12.8px",fontFamily:"monospace",fontWeight:"800",borderRadius:"7px",cursor:"pointer"}},zc?tr({ru:"Нажмите ещё раз: обнулить убытки",he:"לחצו שוב: לאפס הפסדים",en:"Tap again: reset losses"}):("↺ "+tr({ru:"Обнулить убытки (день/неделя/месяц/просадка)",he:"איפוס הפסדים (יום/שבוע/חודש/ירידה)",en:"Reset losses (day/week/month/drawdown)"}))),
-      (function(){ let L=[]; try{ L=(props.getBlk&&props.getBlk())||[]; }catch(_){} const nowT=Date.now(), c={}; L.forEach(x=>{ if(nowT-x.t<600000) c[x.r]=(c[x.r]||0)+1; }); const ks=Object.keys(c).sort((a,b)=>c[b]-c[a]); const names={book_wide_spread:tr({ru:"широкий спред",he:"ספרד רחב",en:"wide spread"}),book_thin_book:tr({ru:"тонкий стакан",he:"ספר דק",en:"thin book"}),book_imbalance:tr({ru:"дисбаланс стакана",he:"חוסר איזון",en:"book imbalance"}),book_unstable:tr({ru:"нестабильный стакан",he:"ספר לא יציב",en:"unstable book"}),book_ofi_against:tr({ru:"поток ордеров против",he:"זרימה נגדית",en:"order flow against"}),book_depth_wait:tr({ru:"ждём глубину",he:"ממתין לעומק",en:"waiting for depth"}),book_depth_against:tr({ru:"глубина против",he:"עומק נגדי",en:"depth against"}),book_slippage:tr({ru:"проскальзывание",he:"החלקה",en:"slippage"}),book_depth_thin:tr({ru:"тонкая глубина",he:"עומק דק",en:"thin depth"}),counter_trend:tr({ru:"против тренда",he:"נגד המגמה",en:"against trend"}),day_limit:tr({ru:"дневной лимит",he:"מגבלה יומית",en:"day limit"})}; return e("div",{key:"blk","data-testid":"ss-blocks",style:{marginTop:"8px",fontSize:"11.5px",color:T.text,lineHeight:1.45,fontFamily:"monospace"}},tr({ru:"Почему нет входов (последние 10 мин): ",he:"למה אין כניסות (10 דק׳ אחרונות): ",en:"Why no entries (last 10 min): "})+(ks.length?ks.slice(0,6).map(k=>(names[k]||k)+" ×"+c[k]).join(" · "):tr({ru:"блокировок не было",he:"לא היו חסימות",en:"no blocks"}))); })(),
+      (function(){ let L=[]; try{ L=(props.getBlk&&props.getBlk())||[]; }catch(_){} const nowT=Date.now(), c={}; L.forEach(x=>{ if(nowT-x.t<600000) c[x.r]=(c[x.r]||0)+1; }); const ks=Object.keys(c).sort((a,b)=>c[b]-c[a]); const names={book_wide_spread:tr({ru:"широкий спред",he:"ספרד רחב",en:"wide spread"}),book_thin_book:tr({ru:"тонкий стакан",he:"ספר דק",en:"thin book"}),book_imbalance:tr({ru:"дисбаланс стакана",he:"חוסר איזון",en:"book imbalance"}),book_unstable:tr({ru:"нестабильный стакан",he:"ספר לא יציב",en:"unstable book"}),book_ofi_against:tr({ru:"поток ордеров против",he:"זרימה נגדית",en:"order flow against"}),book_depth_wait:tr({ru:"ждём глубину",he:"ממתין לעומק",en:"waiting for depth"}),book_depth_against:tr({ru:"глубина против",he:"עומק נגדי",en:"depth against"}),book_slippage:tr({ru:"проскальзывание",he:"החלקה",en:"slippage"}),book_depth_thin:tr({ru:"тонкая глубина",he:"עומק דק",en:"thin depth"}),candle_not_long:tr({ru:"свеча не длинная",he:"הנר לא ארוך",en:"candle not long"}),candle_at_edge:tr({ru:"цена на краю свечи",he:"המחיר בקצה הנר",en:"price at candle edge"}),candle_doji:tr({ru:"свеча без тела",he:"נר ללא גוף",en:"no candle body"}),candle_late:tr({ru:"мало времени до конца свечи",he:"מעט זמן לסוף הנר",en:"too little time left"}),candle_dir:tr({ru:"свеча против сигнала",he:"הנר נגד האות",en:"candle vs signal"}),candle_nodata:tr({ru:"нет данных свечи",he:"אין נתוני נר",en:"no candle data"}),candle_short_hist:tr({ru:"мало истории свечей",he:"היסטוריית נרות קצרה",en:"short candle history"}),counter_trend:tr({ru:"против тренда",he:"נגד המגמה",en:"against trend"}),day_limit:tr({ru:"дневной лимит",he:"מגבלה יומית",en:"day limit"})}; return e("div",{key:"blk","data-testid":"ss-blocks",style:{marginTop:"8px",fontSize:"11.5px",color:T.text,lineHeight:1.45,fontFamily:"monospace"}},tr({ru:"Почему нет входов (последние 10 мин): ",he:"למה אין כניסות (10 דק׳ אחרונות): ",en:"Why no entries (last 10 min): "})+(ks.length?ks.slice(0,6).map(k=>(names[k]||k)+" ×"+c[k]).join(" · "):tr({ru:"блокировок не было",he:"לא היו חסימות",en:"no blocks"}))); })(),
       e("div",{style:{fontSize:"11px",color:T.gray1,marginTop:"6px",lineHeight:1.4}},tr({ru:"Выходы — только по прибыли или стопу. Счёт, позиции и история сделок при сбросе убытков не меняются.",he:"יציאות רק ברווח או בסטופ. החשבון, הפוזיציות וההיסטוריה לא משתנים באיפוס.",en:"Exits only at profit or stop. Balance, positions and trade history are not changed by a loss reset."}))));
 }
 function H4Box(props){
@@ -20114,9 +20138,9 @@ function App(){
     let BKv=null; { const G=_scGate(acct,mem,pm,tk,dir,px,stopPct,qty); if(G.block){ try{ const L=(window.__scBlk=window.__scBlk||[]); L.push({t:Date.now(),r:String(G.block),tk:tk}); if(L.length>300) L.splice(0,L.length-300); }catch(e){} _scGateLog(tk,G); return false; } BKv=G.bk||null; if(G.qty!==qty){ _scGateLog(tk,G,qty,G.qty); qty=G.qty; } }
     const fee=_vxFeeFor(qty,px,tk); const r=_vxApply(acct,dir>0?"buy":"sell",tk,qty,px,fee,"ai",{scalp:true}); if(!r.ok) return false;
     _saveVX(r.acct); mem.open=mem.open||{}; const nowT=Date.now();
-    mem.open[tk]={side:dir>0?"long":"short",conf:null,entryPrice:px,qty:qty,ts:nowT,target:+(px*(1+dir*tpPct/100)).toFixed(4),stop:+(px*(1-dir*stopPct/100)).toFixed(4),limitMin:60,scalp:true,turbo:true,bk:BKv,pk:0,signs:null,plan:{rr:null,src:{t:"turbo",s:"micro"},tp:tpPct,sp:+stopPct.toFixed(3)},scalpSig:{atr:null,tp:tpPct,sp:+stopPct.toFixed(3),mom:+m.mv.toFixed(3)}};
+    mem.open[tk]={side:dir>0?"long":"short",conf:null,entryPrice:px,qty:qty,ts:nowT,cndl:(m&&m.cndl&&m.cndl.endTs)?{end:m.cndl.endTs,tf:m.cndl.tf,rp:m.cndl.rangePct,pos:m.cndl.pos}:undefined,target:+(px*(1+dir*tpPct/100)).toFixed(4),stop:+(px*(1-dir*stopPct/100)).toFixed(4),limitMin:60,scalp:true,turbo:true,bk:BKv,pk:0,signs:null,plan:{rr:null,src:{t:"turbo",s:"micro"},tp:tpPct,sp:+stopPct.toFixed(3)},scalpSig:{atr:null,tp:tpPct,sp:+stopPct.toFixed(3),mom:+m.mv.toFixed(3)}};
     _saveAi(mem); setVxPrices(prev=>({...prev,[tk]:px}));
-    try{ window.QEVXLog.log("INFO","scalp.entry "+tk,{side:dir>0?"long":"short",qty:qty,px:px,stop:mem.open[tk].stop,sp:+stopPct.toFixed(3),mv:+m.mv.toFixed(3),band:+m.band.toFixed(3),turbo:true,bk:BKv||undefined,fee:+fee.toFixed(3)}); }catch(e){}
+    try{ window.QEVXLog.log("INFO","scalp.entry "+tk,{side:dir>0?"long":"short",qty:qty,px:px,stop:mem.open[tk].stop,sp:+stopPct.toFixed(3),mv:+m.mv.toFixed(3),band:+m.band.toFixed(3),turbo:true,bk:BKv||undefined,candle:(m&&m.cndl)?{rp:m.cndl.rangePct,pos:m.cndl.pos,left:Math.round(m.cndl.remMs/1000)}:undefined,fee:+fee.toFixed(3)}); }catch(e){}
     setVxMsg("⚡ "+(dir>0?"▲ ":"▼ ")+tk+" "+qty+" @ $"+px.toFixed(CR&&px<10?4:2)); try{ const S=_scLoad(); _scPublish(S,r.acct,mem); }catch(e){} return true; };
   const _tbStep=async(h)=>{ const tk=h.tk, C=TB(); const acct0=_tbAcct(); const p0=acct0&&acct0.positions.find(x=>x.ticker===tk&&x.qty!==0); const mem0=_loadAi(); const t0=mem0.open&&mem0.open[tk]; if(!p0||!(t0&&t0.scalp)){ h.alive=false; return; }
     if(!_isCryptoTk(tk)&&!window.QEHours.isOpen(/[.]/.test(tk)?(vxExchRef.current||"US"):"US")){ h.gap=10000; return; }   /* vc578: crypto is always open - switching the picker to a closed exchange must not freeze its trades */
@@ -20131,6 +20155,7 @@ function App(){
       if(dirty&&(!h.pkSave||now-h.pkSave>15000)){ h.pkSave=now; _saveAi(mem); } }
     const heldMs=now-(p.openTs||th.ts||now); const m=_tbMicro(buf,now,_isCryptoTk(tk)); if(m&&(m.rv===-sd||m.dir===-sd)) h.rev++; else h.rev=0;
     let act=null; if(th.stop>0&&sd*(px-th.stop)<=0) act="cut"; else if(th.target>0&&sd*(px-th.target)>=0&&netUsd>0) act="take"; else if(netUsd>0&&((_isCryptoTk(tk)&&((th.scalpSig&&th.scalpSig.sp)||0)>0)?((th.pk||0)>=1.5*th.scalpSig.sp&&fav<=th.pk*0.6):((th.pk||0)>=0.05&&fav<=th.pk*0.55))) act="tb_trail"; else if(QETrend.on()&&(h.rev>=2&&!h.rvL?(h.rvL=true,true):h.rvL)&&netUsd>0) act="tb_turn";   /* vc617: reversal latched; sell at first net profit > 0 */;   // vc592: no reversal exit — exits only at profit (target/trail) or stop
+    if(!act&&th.cndl&&th.cndl.end>0&&now>=th.cndl.end-8000&&netUsd>0) act="candle_end";   /* vc625: leave before the candle ends - but only in net profit (exits only at profit or stop); if not in profit the stop stays and the first net profit after the candle end exits */
     if(!act) return;
     try{ _saveAi(mem); }catch(e){}   /* vc619: persist MFE/MAE before the close reloads the ledger */
     const c=_tbClose(tk,px,act); if(!c) return; h.alive=false;
@@ -20223,6 +20248,11 @@ function App(){
   const _ctDue=()=>{ const cfg=_ctCfg(); if(!cfg.on) return; const S=_ctLoad(); const nowT=Date.now(); const today=new Date().toISOString().slice(0,10); if(S.day!==today||nowT-S.ts>6*3600e3||(S.err&&nowT-S.ts>600000)) _ctEval(false); };
   const _setCt=(patch)=>{ setCtCfgS(prev=>{ const n={...prev,...patch}; try{ localStorage.setItem("qe_ct_on",n.on?"1":"0"); localStorage.setItem("qe_ct_pct",String(n.pct)); localStorage.setItem("qe_ct_tv",String(n.tv)); }catch(e){} return n; }); };
   try{ window.__ctDebug={kr:_krLoad,eval:_ctEval,guard:_ctGuard,state:_ctLoad,due:_ctDue}; }catch(e){}
+  const _candleOn=()=>{ try{ return localStorage.getItem("qe_candle")!=="0"; }catch(e){ return true; } };
+  const _candleTf=()=>{ try{ const v=parseInt(localStorage.getItem("qe_candle_tf")); return (v===1||v===5||v===15)?v:5; }catch(e){ return 5; } };
+  const _candleInfo=async(tk,px)=>{ const tf=_candleTf(), R=tbRef.current; R.kc=R.kc||{}; const k=tk+":"+tf, c=R.kc[k], now=Date.now(); let kl=null;
+    if(c&&now-c.ts<8000) kl=c.kl; else { try{ kl=await Promise.race([QEBin.klines(tk,tf+"m",24),new Promise(res=>setTimeout(()=>res(null),3000))]); }catch(e){ kl=null; } if(kl&&kl.length) R.kc[k]={ts:now,kl:kl}; else if(c&&now-c.ts<60000) kl=c.kl; }
+    if(!kl||!kl.length) return null; const o=QECandle.eval(kl,px,Date.now(),tf*60000,{}); o.tf=tf; return o; };
   const _tbRp=(M)=>{ const R=tbRef.current; return (R.rep=R.rep||{})[M]||(R.rep[M]={scans:0,qOk:0,qFail:0,sig:0,coolBlk:0,full:0,openOk:0,openFail:0,lastOpen:0,lastOk:0,err:"",errTs:0,rows:[],ts:0,w:0,watch:[]}); };
   const _tbGuideInfo=()=>{ const sg=tbRef.current.sg||{}; return {n:(sg.list||[]).length,via:sg.via||"",ts:sg.ts||0,busy:!!sg.busy,err:sg.err||"",top:(sg.list||[]).slice(0,10).map(x=>x.tk+(x.g?("/"+x.g):"")+":"+Math.round(x.q))}; };
   const _tbScanMkt=async(M,C,mst)=>{ const R=tbRef.current; const acct=_tbAcct(); if(!acct) return; const mem=_loadAi(); const CRm=M==="CR"; R.wm=R.wm||{};
@@ -20234,9 +20264,12 @@ function App(){
     const qs=await Promise.all(pick.map(tk=>_tbQuote(tk).then(q=>[tk,q]).catch(()=>[tk,null]))); let best=null;
     const okN=qs.filter(x=>x[1]&&x[1].price>0).length; if(!okN) _tbIdle("no_quotes",{mkt:M,watch:w.length,pick:pick.join(",")});
     const rp=_tbRp(M); rp.scans++; rp.w=w.length; rp.watch=w.slice(0,15); rp.ts=Date.now(); const rows=[]; const T0=TB();
+    const candOn=CRm&&_candleOn(); const cinfo={};
+    if(candOn){ await Promise.all(qs.filter(x=>x[1]&&x[1].price>0).map(async([tk,q])=>{ try{ cinfo[tk]=await _candleInfo(tk,q.price); }catch(e){ cinfo[tk]=null; } })); }   /* vc625 */
     qs.forEach(([tk,q])=>{ if(!(q&&q.price>0)){ rp.qFail++; rows.push({tk:tk,s:"noq"}); return; } rp.qOk++; rp.lastOk=Date.now(); const b=_tbPush(tk,q.price); const m=_tbMicro(b,Date.now(),_isCryptoTk(tk));
       if(!m){ rows.push({tk:tk,s:"warm",px:q.price,n:b.length,need:T0.warmPts,age:Math.round((Date.now()-b[0].t)/1000),needS:Math.round(T0.warmMs/1000)}); return; }
       if(m.dir===0){ rows.push({tk:tk,s:"flat",px:q.price}); return; }
+      if(candOn){ const ci=cinfo[tk]; if(!ci||!ci.ok||ci.dir!==m.dir){ const why=!ci?"nodata":(ci.ok?"dir":ci.why); rows.push({tk:tk,s:"candle_"+why,px:q.price,dir:m.dir}); try{ const L=(window.__scBlk=window.__scBlk||[]); L.push({t:Date.now(),r:"candle_"+why,tk:tk}); if(L.length>300) L.splice(0,L.length-300); }catch(e){} return; } m.cndl=ci; }   /* vc625: candle rule - long candle, same direction as the micro signal, price in the middle of the range, time left */
       const gi=(!CRm&&R.sg&&R.sg.list)?R.sg.list.find(z=>z.tk===tk):null; if(!CRm&&R.sg&&R.sg.list&&R.sg.list.length&&m.dir<0){ rows.push({tk:tk,s:"nosh",px:q.price,dir:-1,gq:gi?Math.round(gi.q):null}); return; }
       rp.sig++; if(R.cool[tk]>Date.now()){ rp.coolBlk++; rows.push({tk:tk,s:"cool",px:q.price,dir:m.dir,left:Math.round((R.cool[tk]-Date.now())/1000)}); return; }
       rows.push({tk:tk,s:"sig",px:q.price,dir:m.dir,sc:+(m.score||0).toFixed(2),gq:gi?Math.round(gi.q):null}); if(!best||m.score>best.m.score) best={tk:tk,m:m,px:q.price}; });
