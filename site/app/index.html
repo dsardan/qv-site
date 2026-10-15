@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.168</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.170</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.168";
+const QE_VERSION = "15.12.170";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -6845,21 +6845,24 @@ var QETrend=(function(){
     if(b&&b.length>=12){ for(i=0;i<b.length;i++){ if(b[i]&&b[i].close>0&&b[i].t>0){ a.push({t:b[i].t,p:b[i].close}); lt=b[i].t; } } }
     var sm=S[tk]||[]; for(i=0;i<sm.length;i++){ if(sm[i].t>lt) a.push(sm[i]); }
     if(px>0) a.push({t:now,p:px});
+    if(o.fast){ var F=cr?[0.08,0.15]:[0.04,0.07], q5=retAt(a,now,5*60000), q15=retAt(a,now,15*60000), f5=sgn(q5,F[0]), f15=sgn(q15,F[1]); return {d:f5!==0?f5:f15,score:f5*2+f15,fast:true,r:{m5:q5==null?null:+q5.toFixed(3),m15:q15==null?null:+q15.toFixed(3)},n:a.length}; }   /* vc616: scalping reads only the last 5-15 minutes */
     var T=cr?[0.25,0.45,0.9,3]:[0.12,0.25,0.5,1.5];
     var r15=retAt(a,now,15*60000), r1=retAt(a,now,3600000), r4=retAt(a,now,4*3600000), rd=null, d=o.daily;
     if(d&&d.length>=12&&px>0){ var c0=d[d.length-11]&&d[d.length-11].close; if(c0>0) rd=(px/c0-1)*100; }
-    var sc=1*sgn(r15,T[0])+2*sgn(r1,T[1])+2*sgn(r4,T[2])+1*sgn(rd,T[3]);
-    return {d:sc>=2?1:(sc<=-2?-1:0),score:sc,r:{m15:r15==null?null:+r15.toFixed(2),h1:r1==null?null:+r1.toFixed(2),h4:r4==null?null:+r4.toFixed(2),d10:rd==null?null:+rd.toFixed(2)},n:a.length}; }
+    var s15=sgn(r15,T[0]), s1=sgn(r1,T[1]), s4=sgn(r4,T[2]), sD=sgn(rd,T[3]), sc=1*s15+2*s1+2*s4+1*sD, lg=(s1!==0||s4!==0||sD!==0);   /* vc616: any longer-horizon trend decides (a small bounce on 15m cannot cancel a falling 1h/4h); 15m alone is not a trend */
+    return {d:lg?(sc>0?1:(sc<0?-1:0)):0,score:sc,r:{m15:r15==null?null:+r15.toFixed(2),h1:r1==null?null:+r1.toFixed(2),h4:r4==null?null:+r4.toFixed(2),d10:rd==null?null:+rd.toFixed(2)},n:a.length}; }
   /* gate for a new/add order in direction sg (+1 long / -1 short): blocks only when a CLEAR opposite trend exists */
   function check(tk,sg,px,o){ var r=dir(tk,px,o); return {block:(r.d!==0&&r.d!==sg),tr:r}; }
   function on(){ try{ return localStorage.getItem("qe_trend")!=="0"; }catch(e){ return true; } }
   /* live inputs from the app's caches */
   function ctx(tk){ var o={}; try{ var c=window.__scBars&&window.__scBars[tk]; if(c&&c.bars&&c.bars.length) o.bars=c.bars; }catch(e){} try{ var d=window.__vxBarsCache&&window.__vxBarsCache[tk]; if(d&&d.bars&&d.bars.length) o.daily=d.bars; }catch(e){} return o; }
-  function gate(tk,sg,px){ if(!on()) return {block:false}; rec(tk,px); return check(tk,sg,px,ctx(tk)); }
+  function gate(tk,sg,px,fast){ if(!on()) return {block:false}; rec(tk,px); var o=ctx(tk); if(fast) o.fast=true; return check(tk,sg,px,o); }
+  /* scalp exit helper: the short-term move has turned against an open position (caller still requires net profit > 0) */
+  function turned(tk,sg,px){ rec(tk,px); var o=ctx(tk); o.fast=true; var r=dir(tk,px,o); return r.d!==0&&r.d!==sg; }
   function view(tk,px){ return dir(tk,px,ctx(tk)); }
   /* a protective stop for a counter-trend position: never looser than the current one */
   function tightStop(sg,px,cur,cr){ var f=cr?0.015:0.01, ns=sg>0?px*(1-f):px*(1+f); ns=+ns.toFixed(4); if(cur>0){ if(sg>0&&ns<=cur) return null; if(sg<0&&ns>=cur) return null; } return ns; }
-  return {rec:rec,dir:dir,check:check,gate:gate,view:view,on:on,tightStop:tightStop,_S:S};
+  return {rec:rec,dir:dir,check:check,gate:gate,turned:turned,view:view,on:on,tightStop:tightStop,_S:S};
 })();
 try{ window.QETrend=QETrend; }catch(e){}
 
@@ -19783,6 +19786,7 @@ function App(){
       try{ if(_ctlOn()){ const ns=QECtl.ratchet(sd,p.avg,px,th.target,th.stop); if(ns){ const old=th.stop; th.stop=ns; _saveAi(mem); window.QEVXLog.log("INFO","ctl.ratchet "+p.ticker,{side:sd>0?"long":"short",from:old,to:ns,px:px}); } } }catch(e){}
       if(sd*(px-th.target)>=0 && netUsd>0) act="take";
       else if(th.stop>0 && sd*(px-th.stop)<=0) act="cut";
+      else if(netUsd>0 && (()=>{ try{ return QETrend.on()&&QETrend.turned(p.ticker,sd,px); }catch(e){ return false; } })()) act="turn";   /* vc616: price started to move against the scalp - sell, but only in profit */
       else if(netUsd>0 && (heldM>=(th.limitMin||60) || (et.min>=15*60+50 && !_isCryptoTk(p.ticker)))) act="time";
       try{ const _lk="sm:"+p.ticker; vxWarnedRef.current[_lk]=vxWarnedRef.current[_lk]||0; if(act!=="hold"||nowT-vxWarnedRef.current[_lk]>=300000){ vxWarnedRef.current[_lk]=nowT; window.QEVXLog.log("INFO","scalp.manage "+p.ticker,{side:sd>0?"long":"short",entry:th.entryPrice,px:px,target:th.target,stop:th.stop,held:+heldM.toFixed(1)+"m",net$:+netUsd.toFixed(2),act:act}); } }catch(e){}
       if(act==="hold") continue;
@@ -19894,7 +19898,7 @@ function App(){
   const _scGate=(acct,mem,pm,tk,dir,px,stopPct,qty)=>{ try{ if(!_ctlOn()) return {qty:qty}; const CT=_ctlCalc(acct,mem,pm); if(!CT) return {qty:qty}; const cr=_isCryptoTk(tk);
       { const DDv=parseFloat(localStorage.getItem("qe_vx_ddlim")), LIM=(DDv>=0&&DDv<=20)?DDv:2; if(LIM>0 && CT.dayDD<=-LIM) return {block:"day_limit",CT:CT}; }   /* account day-loss limit: the controller stops NEW scalps too */
       const g=QECtl.entry(CT,dir,false); if(g.block) return {block:g.reason,CT:CT};
-      { const TG=QETrend.gate(tk,dir,px); if(TG.block) return {block:"counter_trend",CT:CT,TR:TG.tr}; }   /* vc615: falling -> only short, rising -> only long */
+      { const TG=QETrend.gate(tk,dir,px,true); if(TG.block) return {block:"counter_trend",CT:CT,TR:TG.tr}; }   /* vc615: falling -> only short, rising -> only long */
       let q=qty; const mm=CT.scalpMult; if(mm>0&&mm<1) q=cr?Math.floor(q*mm*1e6)/1e6:Math.floor(q*mm);
       const mx=QECtl.fit(CT,px,stopPct,cr); if(cr?(mx*px<10):(mx<1)) return {block:"heat",CT:CT}; q=Math.min(q,mx);
       if(cr?(q*px<10):(q<1)) return {block:"size",CT:CT}; return {qty:q,CT:CT,mult:mm}; }catch(e){ return {qty:qty}; } };
@@ -19921,7 +19925,7 @@ function App(){
     const sd=p.qty>0?1:-1; h.side=sd>0?"long":"short"; const qn=Math.abs(p.qty), exitFee=_vxFeeFor(qn,px,tk); const netUsd=sd*(px-p.avg)*qn-exitFee-(p.fees||0); const fav=sd*(px-p.avg)/p.avg*100; h.fav=+fav.toFixed(3);
     if(fav>(th.pk||0)){ th.pk=+fav.toFixed(4); if(!h.pkSave||now-h.pkSave>15000){ h.pkSave=now; _saveAi(mem); } }
     const heldMs=now-(p.openTs||th.ts||now); const m=_tbMicro(buf,now,_isCryptoTk(tk)); if(m&&(m.rv===-sd||m.dir===-sd)) h.rev++; else h.rev=0;
-    let act=null; if(th.stop>0&&sd*(px-th.stop)<=0) act="cut"; else if(th.target>0&&sd*(px-th.target)>=0&&netUsd>0) act="take"; else if(netUsd>0&&(th.pk||0)>=0.05&&fav<=th.pk*0.55) act="tb_trail";;   // vc592: no reversal exit — exits only at profit (target/trail) or stop
+    let act=null; if(th.stop>0&&sd*(px-th.stop)<=0) act="cut"; else if(th.target>0&&sd*(px-th.target)>=0&&netUsd>0) act="take"; else if(netUsd>0&&(th.pk||0)>=0.05&&fav<=th.pk*0.55) act="tb_trail"; else if(netUsd>0&&h.rev>=2&&QETrend.on()) act="tb_turn";;   // vc592: no reversal exit — exits only at profit (target/trail) or stop
     if(!act) return;
     const c=_tbClose(tk,px,act); if(!c) return; h.alive=false;
     tbRef.current.cool[tk]=now+10000;
@@ -20324,7 +20328,7 @@ function App(){
         if(dec && !dec.skip && macro && macro.count>0 && macro.nextInDays!=null && macro.nextInDays<=1 && (dec.why==="long"||dec.why==="short")){ dec.qty=_qR(dec.qty*0.6,tk); }   // big event within a day: trade smaller, not zero
         // vc549: controller gate - mode / regime / exposure multiplier and the risk-budget ("heat") fit; only new entries and add-ons are touched
         try{ if(dec && !dec.skip && (dec.why==="long"||dec.why==="short"||dec.why==="add")){ const CT=_ctlCalc(acct,mem,pm);
-          if(CT){ const sg=dec.side==="short"?-1:1, g=QECtl.entry(CT,sg,dec.why==="add"); { const TG=QETrend.gate(tk,sg,price); if(!g.block && TG.block){ g.block=true; g.reason="counter_trend"; g.TR=TG.tr; } }
+          if(CT){ const sg=dec.side==="short"?-1:1, g=QECtl.entry(CT,sg,dec.why==="add"); if(QETrend.on()){ try{ const _c=window.__scBars&&window.__scBars[tk]; if(!(_c&&_c.bars&&_c.bars.length>=12)) await Promise.race([ _scBars(tk,"5d"), new Promise(res=>setTimeout(()=>res(null),6000)) ]); }catch(e){} } { const TG=QETrend.gate(tk,sg,price); if(!g.block && TG.block){ g.block=true; g.reason="counter_trend"; g.TR=TG.tr; } }
             if(g.block){ dec.skip=true; dec.reason="ctl_"+g.reason; try{ _dogSet(tk,sg>0?"vwap_up":"vwap_dn",0,{entry:true,src:"ctl",exp:Date.now()+4*3600000,note:"blocked: "+g.reason}); }catch(e){} try{ window.QEVXLog.log("INFO","ctl.block "+tk,{why:g.reason,tr:g.TR||undefined,mode:CT.mode,long:CT.longPct,short:CT.shortPct}); }catch(e){} }
             else { const q0=dec.qty; let q1=_qR(dec.qty*g.mult*((window.QEGOAL&&window.QEGOAL.mult())||1),tk); const mx=QECtl.fit(CT,price,3,_isCryptoTk(tk));
               if(_isCryptoTk(tk)?(mx*price<10):(mx<1)){ dec.skip=true; dec.reason="ctl_heat"; try{ _dogSet(tk,sg>0?"vwap_up":"vwap_dn",0,{entry:true,src:"ctl",exp:Date.now()+4*3600000,note:"blocked: heat"}); }catch(e){} try{ window.QEVXLog.log("INFO","ctl.block "+tk,{why:"heat",heat:CT.heat,cap:CT.heatCap}); }catch(e){} }
