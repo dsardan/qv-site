@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.185</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.186</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.185";
+const QE_VERSION = "15.12.186";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -6206,7 +6206,7 @@ window.QEGOAL=(function(){ var KEY="qe_vx_goal_v1", eqFn=null, openFn=null;
     save(g); log(res==="hit"?"INFO":"WARN","goal.end",{res:res,target:g.target,net:+(g.net||0).toFixed(2),peak:+(g.peak||0).toFixed(2),low:+(g.low||0).toFixed(2)}); }
   function stop(){ var g=load(); if(!g.on&&!g.auto) return; g.status="off"; g.on=false; g.auto=false; save(g); log("INFO","goal.off",{net:+(g.net||0).toFixed(2)}); }
   /* evaluate now; returns the (possibly updated) state */
-  function update(){ var g=load(); if(!g.on&&!g.auto) return g; var e=eq(); if(e==null) return g; var now=Date.now();
+  function update(){ var g=load(); if(!g.on&&!g.auto) return g; var e=eq(); if(e==null) return g; var now=Date.now(); if(g.rebTs&&now-g.rebTs<5000) return g;   /* vc632: let the displayed equity catch up with the cash flow first */
     if(g.auto||g.day){ if(!g.day||g.day.k!==dkey()){ if(g.day&&g.day.n>0){ g.days=(g.days||[]).concat([{k:g.day.k,net:+(((g.dayLast!=null)?g.dayLast:0)).toFixed(2),n:g.day.n,hit:g.day.hit,done:g.day.done}]).slice(-14); } g.day={k:dkey(),eq0:e,n:0,hit:0,done:null}; g.dayLast=0; } }
     if(g.day){ var dn=e-g.day.eq0; g.dayLast=+dn.toFixed(2);
       if(!g.day.done){ if(dn>=dayTarget(g)){ g.day.done="hit"; log("INFO","goal.day.hit",{net:+dn.toFixed(2),target:dayTarget(g),windows:g.day.n}); } else if(dn<=-g.dayCap){ g.day.done="stop"; log("WARN","goal.day.stop",{net:+dn.toFixed(2),cap:g.dayCap,windows:g.day.n}); } } }
@@ -6224,7 +6224,12 @@ window.QEGOAL=(function(){ var KEY="qe_vx_goal_v1", eqFn=null, openFn=null;
   function mult(){ var g=load(); return (g.on&&g.status==="run"&&g.mult>1)?Math.min(2,g.mult):1; }
   function feas(hist,target,min){ var W=(min||30)*60000, b={}, n=0; (hist||[]).forEach(function(h){ var v=(h.net!=null)?h.net:((h.realized||0)-(h.fee||0)); if(!(Math.abs(h.realized||0)>1e-9)||!h.ts) return; var k=Math.floor(h.ts/W); b[k]=(b[k]||0)+v; });
     var a=Object.keys(b).map(function(k){ return b[k]; }); n=a.length; if(n<10) return {n:n,enough:false}; var hit=a.filter(function(x){ return x>=target; }).length; return {n:n,enough:true,share:hit/n,med:median(a)}; }
-  return {load:load,start:start,stop:stop,update:update,halted:halted,mult:mult,feas:feas,dayTarget:dayTarget,setEq:function(f){ eqFn=f; },setOpen:function(f){ openFn=f; }}; })();
+  /* vc632: a deposit / withdrawal / budget reset is NOT profit: shift the window and day baselines by the cash flow, and undo a "hit" that the cash flow itself caused */
+  function rebase(delta){ var g=load(); if(!(isFinite(delta))||Math.abs(delta)<1e-9) return; if(g.eq0>0) g.eq0=+(g.eq0+delta).toFixed(2); if(g.day&&g.day.eq0>0) g.day.eq0=+(g.day.eq0+delta).toFixed(2);
+    if(g.status==="hit"||g.status==="stop"){ if(g.on) g.status="run"; } if(g.day&&(g.day.done==="hit"||g.day.done==="stop")) g.day.done=null; g.net=0; g.peak=0; g.low=0; g.rebTs=Date.now(); save(g); log("INFO","goal.rebase",{delta:+(+delta).toFixed(2)}); }
+  /* one-time repair (vc632): a budget reset done in 15.12.186 counted as a goal "hit" and halted the AI for the whole day */
+  function repair(e){ var g=load(); if(!(e>0)) return false; var ch=false; if(g.day&&(g.day.done==='hit'||g.day.done==='stop')&&g.day.eq0>0&&Math.abs(e-g.day.eq0)>3*dayTarget(g)){ g.day.eq0=e; g.day.done=null; ch=true; } if(g.on&&(g.status==='hit'||g.status==='stop')&&g.eq0>0&&Math.abs(e-g.eq0)>3*(g.target||1)){ g.eq0=e; g.status='run'; g.net=0; g.peak=0; g.low=0; ch=true; } if(ch){ save(g); log('INFO','goal.repair',{eq:+e.toFixed(2)}); } return ch; }
+  return {repair:repair,rebase:rebase,load:load,start:start,stop:stop,update:update,halted:halted,mult:mult,feas:feas,dayTarget:dayTarget,setEq:function(f){ eqFn=f; },setOpen:function(f){ openFn=f; }}; })();
 window.QEVXLog=(function(){ var KEY="qe_vxlog_v1", MAX=500;
   function ts(){ var d=new Date(),p=function(n){return String(n).padStart(2,"0");}; return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds()); }
   function read(){ try{ return (localStorage.getItem(KEY)||"").split("\n").filter(Boolean); }catch(e){ return []; } }
@@ -19232,7 +19237,7 @@ function App(){
     await vxTrade(cp.qty>0?"sell":"buy", cp.ticker, Math.abs(cp.qty), undefined); };
   const _vxM=(v)=>"$"+Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g,",");
   const _fill=(k,o)=>t(k).replace(/\{(\w+)\}/g,(m0,x)=>o[x]==null?"":o[x]);
-  const vxReset=(amt)=>{ const d=_vxDefault(); const b=(amt>0)?Math.round(amt*100)/100:d.start; d.cash=b; d.start=b; _saveVX(d); setVxPrices({}); setVxAiMoves([]);
+  const vxReset=(amt)=>{ const d=_vxDefault(); const b=(amt>0)?Math.round(amt*100)/100:d.start; try{ const a0=_acctNow()||vxAcct; const e0=a0?_vxEquity(a0,{...vxPricesRef.current}).equity:b; window.QEGOAL&&window.QEGOAL.rebase(b-e0); }catch(e){} d.cash=b; d.start=b; _saveVX(d); setVxPrices({}); setVxAiMoves([]);
     try{ const c=[{ts:Date.now(),eq:d.start}]; _lsSet(_curveKey(),JSON.stringify(c)); setVxCurve(c); }catch(e){}
     try{ const m=_vxAiDefault(); _saveAi(m); setVxAiLearn(_vxAiStats(m)); }catch(e){}   // wipe the AI's learned memory too
     /* vc561: the drawdown anchors (day/week/month) and today's report track belonged to the OLD balance - leave them and the new budget looks like a loss and halts trading */
@@ -19243,7 +19248,7 @@ function App(){
     setVxMsg(_fill("vxb_done_reset",{v:_vxM(b)})); };
   /* vc561: change the budget WITHOUT a reset. delta>0 adds cash, delta<0 withdraws free cash. cash and start move together (P&L unchanged);
      every stored equity anchor (curve, day/week/month anchors, today's report track) is shifted by the same amount so nothing looks like a gain/loss/drawdown. */
-  const vxAdjust=(delta)=>{ const a=_acctNow()||vxAcct; const na={...a,cash:Math.round((a.cash+delta)*100)/100,start:Math.round((a.start+delta)*100)/100,flows:(a.flows||[]).concat([{ts:Date.now(),amt:delta}]).slice(-50)};
+  const vxAdjust=(delta)=>{ try{ window.QEGOAL&&window.QEGOAL.rebase(delta); }catch(e){} const a=_acctNow()||vxAcct; const na={...a,cash:Math.round((a.cash+delta)*100)/100,start:Math.round((a.start+delta)*100)/100,flows:(a.flows||[]).concat([{ts:Date.now(),amt:delta}]).slice(-50)};
     _saveVX(na);
     try{ const cur=JSON.parse(_lsGet(_curveKey())||"[]"); const c=cur.map(q=>({...q,eq:+(q.eq+delta).toFixed(2)})); _lsSet(_curveKey(),JSON.stringify(c)); setVxCurve(c); }catch(e){}
     try{ const dk=_vxKey().replace("qe_vexchange_","qe_vx_dayeq_"), pk=_vxKey().replace("qe_vexchange_","qe_vx_peq_");
@@ -19694,6 +19699,7 @@ function App(){
   const [ctUi,setCtUi]=useState(null); const [ctCfg,setCtCfgS]=useState(()=>{ let on=true,pct=30,tv=25; try{ on=localStorage.getItem("qe_ct_on")!=="0"; const p=parseFloat(localStorage.getItem("qe_ct_pct")); if(p>=0&&p<=100) pct=p; const v=parseFloat(localStorage.getItem("qe_ct_tv")); if(v>=5&&v<=100) tv=v; }catch(e){} return {on:on,pct:pct,tv:tv}; });
   useEffect(()=>{ if(!authUser) return; try{ let n=0; const mem=_loadAi(); Object.keys(mem.open||{}).forEach(tk=>{ const th=mem.open[tk]; if(th&&th.scalp){ delete th.scalp; delete th.turbo; delete th.cndl; delete th.bk; th.migrated="scalp"; n++; } }); if(n){ _saveAi(mem); try{ window.QEVXLog.log("INFO","scalp.migrated",{n:n}); }catch(e){} }
       try{ localStorage.setItem("qe_vx_scalp","0"); localStorage.setItem("qe_turbo","0"); }catch(e){} }catch(e){} },[authUser]);   /* vc628: scalping removed - any open scalp is handed to the swing manager with its existing stop/target */
+  useEffect(()=>{ if(!authUser) return; const t=setTimeout(()=>{ try{ if(localStorage.getItem("qe_goal_fix632")==="1") return; const a=_acctNow()||vxAcct; if(!a) return; const e=_vxEquity(a,{...vxPricesRef.current}).equity; window.QEGOAL&&window.QEGOAL.repair(e); localStorage.setItem("qe_goal_fix632","1"); }catch(e){} },4000); return ()=>clearTimeout(t); },[authUser]);   /* vc632 */
   const engRef=useRef({});   /* vc628: engine state of the crypto-trend module (scalping removed) */
   
   
