@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.176</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.177</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.176";
+const QE_VERSION = "15.12.177";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -1655,13 +1655,10 @@ const QEBin=(function(){
     const rb=relayBase(); const hdr={"Accept":"application/json"};
     const viaRelay=async()=>{ const r=await _tryFetch(rb+"/?url="+encodeURIComponent("https://"+HOSTS[0]+path),{headers:hdr},6000); const j=await r.json(); fails=0; return j; };
     if(rb&&Date.now()<relayFirst){ try{ return await viaRelay(); }catch(e){ last=e; if(/status 400/.test(String((e&&e.message)||e))){ const er=new Error("bin_badsym"); er.badsym=true; throw er; } } }
-    for(let k=0;k<HOSTS.length;k++){
-      const i=(hostIdx+k)%HOSTS.length;
-      try{
-        const r=await _tryFetch("https://"+HOSTS[i]+path,{headers:{"Accept":"application/json"}},4500);
-        const j=await r.json(); hostIdx=i; fails=0; return j;
-      }catch(e){ last=e; const m=String((e&&e.message)||e); if(/status 400/.test(m)){ const err=new Error("bin_badsym"); err.badsym=true; throw err; } }
-    }
+    /* vc623: hedged requests - the last good host first, the others join after 1 s / 2 s; the first answer wins (one slow or blocked host no longer eats the whole 4.5 s quote budget) */
+    try{ return await new Promise((resolve,reject)=>{ let done=false; const errs=[];
+      const start=(k)=>{ const i=(hostIdx+k)%HOSTS.length; _tryFetch("https://"+HOSTS[i]+path,{headers:{"Accept":"application/json"}},4500).then(r=>r.json()).then(j=>{ if(!done){ done=true; hostIdx=i; fails=0; resolve(j); } }).catch(e=>{ const m=String((e&&e.message)||e); if(/status 400/.test(m)){ if(!done){ done=true; const err=new Error("bin_badsym"); err.badsym=true; reject(err); } return; } errs.push(e); if(errs.length>=HOSTS.length&&!done){ done=true; reject(errs[errs.length-1]); } }); };
+      start(0); for(let k=1;k<HOSTS.length;k++) setTimeout(()=>{ if(!done) start(k); },1000*k); }); }catch(e){ if(e&&e.badsym) throw e; last=e; }
     if(rb&&Date.now()>=relayFirst){ try{ const j=await viaRelay(); relayFirst=Date.now()+600000; sLog("Binance direct blocked → via relay for 10 min"); return j; }catch(e){ last=e; if(/status 400/.test(String((e&&e.message)||e))){ const er=new Error("bin_badsym"); er.badsym=true; throw er; } } }   /* vc582: user's own Cloudflare relay */
     lastErr=String((last&&last.message)||last).slice(0,60);
     if(++fails>=3){ offUntil=Date.now()+120000; fails=0; try{ window.QELog&&window.QELog.warn("QEBin","Binance unreachable ("+lastErr+") → Yahoo fallback for 2 min"); }catch(e){} }
@@ -15586,7 +15583,7 @@ function ScalpDiag(props){
     none:{ru:"Нет закрытых сделок",he:"אין עסקאות סגורות",en:"No closed trades"},
     sm:{ru:"сделок {n} · прибыльных {w}% · ср. плюс {aw} · ср. минус {al} · чтобы выйти в ноль нужно {be}% побед · итого {s}",he:"עסקאות {n} · רווחיות {w}% · רווח ממוצע {aw} · הפסד ממוצע {al} · לאפס נדרשים {be}% ניצחונות · סה״כ {s}",en:"trades {n} · winners {w}% · avg win {aw} · avg loss {al} · breakeven needs {be}% winners · total {s}"},
     mm:{ru:"Ход цены после входа ({m} сделок): медиана максимума в плюс {f}%, в минус {a}%, держали {h} с. Дошли до +{t}%: {fr}% сделок; дошли до −{t}% (обратная сторона заработала бы): {rr}%",he:"תנועת מחיר אחרי כניסה ({m} עסקאות): חציון מקסימום ברווח {f}%, בהפסד {a}%, החזקה {h} שנ׳. הגיעו ל-+{t}%: {fr}%; הגיעו ל-−{t}% (הצד ההפוך היה מרוויח): {rr}%",en:"Price path after entry ({m} trades): median best {f}%, worst {a}%, held {h}s. Reached +{t}%: {fr}%; reached −{t}% (the opposite side would have won): {rr}%"},
-    bk:{ru:"Со стаканом (поддержал вход): {a} сделок, {aw}% прибыльных, {as}; без данных стакана: {b} сделок, {bw}% , {bs}",he:"עם ספר הוראות (תמך בכניסה): {a} עסקאות, {aw}% רווחיות, {as}; בלי נתוני ספר: {b} עסקאות, {bw}%, {bs}",en:"With order book (supported entry): {a} trades, {aw}% winners, {as}; without book data: {b} trades, {bw}%, {bs}"}, why:{ru:"По выходам",he:"לפי יציאה",en:"By exit"}, side:{ru:"По сторонам",he:"לפי צד",en:"By side"}, u60:{ru:"Сигнал не сработал за 60 с (цена не ушла в нашу сторону даже на +{t}%): {u}% из {n} сделок; из них со стаканом «ок»: {ub}% из {nb}",he:"האות לא פעל תוך 60 שנ׳ (המחיר לא זז לכיוון שלנו אפילו +{t}%): {u}% מתוך {n} עסקאות; מהן עם ספר «תקין»: {ub}% מתוך {nb}",en:"Signal did not work within 60 s (price never moved our way even +{t}%): {u}% of {n} trades; with book 'ok': {ub}% of {nb}"}, hint:{ru:"Данные хода цены копятся с версии 15.12.176",he:"נתוני מסלול המחיר נצברים מגרסה 15.12.176",en:"Price-path data accumulates from 15.12.176"}};
+    bk:{ru:"Со стаканом (поддержал вход): {a} сделок, {aw}% прибыльных, {as}; без данных стакана: {b} сделок, {bw}% , {bs}",he:"עם ספר הוראות (תמך בכניסה): {a} עסקאות, {aw}% רווחיות, {as}; בלי נתוני ספר: {b} עסקאות, {bw}%, {bs}",en:"With order book (supported entry): {a} trades, {aw}% winners, {as}; without book data: {b} trades, {bw}%, {bs}"}, why:{ru:"По выходам",he:"לפי יציאה",en:"By exit"}, side:{ru:"По сторонам",he:"לפי צד",en:"By side"}, u60:{ru:"Сигнал не сработал за 60 с (цена не ушла в нашу сторону даже на +{t}%): {u}% из {n} сделок; из них со стаканом «ок»: {ub}% из {nb}",he:"האות לא פעל תוך 60 שנ׳ (המחיר לא זז לכיוון שלנו אפילו +{t}%): {u}% מתוך {n} עסקאות; מהן עם ספר «תקין»: {ub}% מתוך {nb}",en:"Signal did not work within 60 s (price never moved our way even +{t}%): {u}% of {n} trades; with book 'ok': {ub}% of {nb}"}, hint:{ru:"Данные хода цены копятся с версии 15.12.177",he:"נתוני מסלול המחיר נצברים מגרסה 15.12.177",en:"Price-path data accumulates from 15.12.177"}};
   const L=(k)=>(X[k][LG]||X[k].en); const fm=(v)=>(v>=0?"+$":"−$")+Math.abs(v).toFixed(2);
   let D={n:0}; try{ D=window.QEDiag.summarize(props.getHist?props.getHist():[]); }catch(_){}
   const fill=(t,o)=>t.replace(/\{(\w+)\}/g,(_,k)=>(o[k]!=null?o[k]:""));
@@ -15601,6 +15598,30 @@ function ScalpDiag(props){
         e("div",{key:"c",style:{fontFamily:"monospace"}},L("side")+": "+grpTxt(D.bySide)),
         D.n60?e("div",{key:"u60","data-testid":"diag-u60",style:{marginTop:"4px"}},fill(L("u60"),{t:D.thr60,u:Math.round(D.u60*100),n:D.n60,ub:D.u60b!=null?Math.round(D.u60b*100):"—",nb:D.n60b})):null,
         D.nm?e("div",{key:"d",style:{marginTop:"4px"}},fill(L("mm"),{m:D.nm,f:D.mfeMed.toFixed(2),a:D.maeMed.toFixed(2),h:Math.round(D.holdMed),t:D.thr,fr:Math.round(D.fwdReach*100),rr:Math.round(D.revReach*100)})):e("div",{key:"e",style:{marginTop:"4px",color:T.gray1}},L("hint"))]));
+}
+function ScalpSettings(props){
+  const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const [,setN]=useState(0); const [open,setOpen]=useState(false); const [zc,setZc]=useState(false); const [pTxt,setPTxt]=useState(String(props.scalpPct));
+  useEffect(()=>{ const id=setInterval(()=>setN(x=>x+1),5000); return ()=>clearInterval(id); },[]);
+  const tr=(o)=>o[LG]||o.en; const ls=(k,d)=>{ try{ const v=localStorage.getItem(k); return v==null?d:v; }catch(_){ return d; } };
+  const flag=(k)=>ls(k,"1")!=="0"; const setFlag=(k,v)=>{ try{ localStorage.setItem(k,v?"1":"0"); }catch(_){} setN(x=>x+1); };
+  const btn=(on,col)=>({background:on?col+"22":"transparent",border:"1.5px solid "+(on?col:T.border),color:on?col:T.gray2,padding:"6px 10px",fontSize:"12.5px",fontFamily:"monospace",fontWeight:"800",borderRadius:"7px",cursor:"pointer"});
+  const row=(k,label,node)=>e("div",{key:k,style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"8px",padding:"6px 0",borderBottom:"1px solid "+T.border}},e("span",{style:{fontSize:"12px",color:T.text,lineHeight:1.3}},label),node);
+  const num=(testid,val,onCh,w)=>e("input",{"data-testid":testid,type:"text",inputMode:"decimal",value:val,onChange:(ev)=>onCh(ev.target.value),style:{width:w||"64px",background:T.bg1,border:"1.5px solid "+T.border,color:T.text,padding:"5px 8px",fontSize:"13px",fontFamily:"monospace",fontWeight:"800",borderRadius:"7px",direction:"ltr"}});
+  const tb=(props.getTb&&props.getTb())||{}; const lastOk=tb.lastOk||0, ago=lastOk?Math.round((Date.now()-lastOk)/60000):null; const noQ=!!(props.tbOn&&props.scalpOn&&(tb.scans>0)&&(!lastOk||Date.now()-lastOk>(window.__ssNoQ||120000)));
+  const onP=(txt)=>{ setPTxt(txt); const v=parseFloat(String(txt).replace(",",".")); if(v>=0&&v<=50){ const r=Math.round(v); props.setScalpPct(r); } };
+  const zeroTap=()=>{ if(!zc){ setZc(true); setTimeout(()=>setZc(false),6000); return; } setZc(false); props.onZeroLoss&&props.onZeroLoss(); };
+  return e("div",{"data-testid":"scalp-settings",style:{margin:"10px 0",border:"1.5px solid "+(noQ?T.red:T.border),borderRadius:"10px",background:T.bg2}},
+    e("div",{"data-testid":"scalp-settings-btn",onClick:()=>setOpen(!open),style:{padding:"10px 12px",fontSize:"13px",fontWeight:900,color:T.cyan,cursor:"pointer",display:"flex",justifyContent:"space-between",fontFamily:"monospace",letterSpacing:"0.3px"}},e("span",null,"⚙ INV SCALPING SETTINGS"+(noQ?" ⚠":"")),e("span",null,open?"▾":"▸")),
+    noQ&&e("div",{"data-testid":"scalp-noq",style:{padding:"0 12px 8px",fontSize:"11.5px",color:T.red,fontWeight:700,lineHeight:1.4}},"⚠ "+tr({ru:"Нет котировок"+(ago!=null?(" уже "+ago+" мин"):"")+": скальпинг ждёт данные. Проверьте интернет (лучше Wi-Fi).",he:"אין נתוני מחיר"+(ago!=null?(" כבר "+ago+" דק׳"):"")+": הסקאלפינג ממתין. בדקו אינטרנט (עדיף Wi-Fi).",en:"No quotes"+(ago!=null?(" for "+ago+" min"):"")+": scalping is waiting for data. Check the connection (Wi-Fi is better)."})),
+    open&&e("div",{style:{padding:"0 12px 10px"}},
+      row("on",tr({ru:"Скальпинг",he:"סקאלפינג",en:"Scalping"}),e("button",{"data-testid":"ss-on",onClick:()=>props.setScalpOn(!props.scalpOn),style:btn(props.scalpOn,T.green)},props.scalpOn?"ON":"OFF")),
+      row("pct",tr({ru:"Доля счёта на скальпинг, % (0–50)",he:"חלק מהחשבון לסקאלפינג, % (0–50)",en:"Account share for scalping, % (0–50)"}),num("ss-pct",pTxt,onP)),
+      row("tb",tr({ru:"Турбо-потоки (по потоку на сделку)",he:"תהליכי טורבו",en:"Turbo threads (one per trade)"}),e("button",{"data-testid":"ss-tb",onClick:()=>props.setTbOn(!props.tbOn),style:btn(props.tbOn,T.gold)},props.tbOn?"ON":"OFF")),
+      row("tr",tr({ru:"Фильтр тренда (падает→шорт, растёт→лонг)",he:"פילטר מגמה",en:"Trend filter (falling→short, rising→long)"}),e("button",{"data-testid":"ss-trend",onClick:()=>setFlag("qe_trend",!flag("qe_trend")),style:btn(flag("qe_trend"),T.green)},flag("qe_trend")?"ON":"OFF")),
+      row("bk",tr({ru:"Фильтр стакана (крипто)",he:"פילטר ספר הוראות",en:"Order-book filter (crypto)"}),e("button",{"data-testid":"ss-book",onClick:()=>setFlag("qe_book",!flag("qe_book")),style:btn(flag("qe_book"),T.cyan)},flag("qe_book")?"ON":"OFF")),
+      row("dd",tr({ru:"Дневной лимит убытка, % (0 = выкл, до 20)",he:"מגבלת הפסד יומית, % (0 = כבוי)",en:"Daily loss limit, % (0 = off, max 20)"}),num("ss-dd",props.vxDdTxt,props.setDdNum)),
+      e("button",{"data-testid":"ss-reset",onClick:zeroTap,style:{marginTop:"8px",width:"100%",background:zc?T.red+"22":"transparent",border:"1.5px solid "+(zc?T.red:T.border),color:zc?T.red:T.text,padding:"8px 0",fontSize:"12.8px",fontFamily:"monospace",fontWeight:"800",borderRadius:"7px",cursor:"pointer"}},zc?tr({ru:"Нажмите ещё раз: обнулить убытки",he:"לחצו שוב: לאפס הפסדים",en:"Tap again: reset losses"}):("↺ "+tr({ru:"Обнулить убытки (день/неделя/месяц/просадка)",he:"איפוס הפסדים (יום/שבוע/חודש/ירידה)",en:"Reset losses (day/week/month/drawdown)"}))),
+      e("div",{style:{fontSize:"11px",color:T.gray1,marginTop:"6px",lineHeight:1.4}},tr({ru:"Выходы — только по прибыли или стопу. Счёт, позиции и история сделок при сбросе убытков не меняются.",he:"יציאות רק ברווח או בסטופ. החשבון, הפוזיציות וההיסטוריה לא משתנים באיפוס.",en:"Exits only at profit or stop. Balance, positions and trade history are not changed by a loss reset."}))));
 }
 function H4Box(props){
   const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const acct=props.acct;
@@ -20118,7 +20139,8 @@ function App(){
     h.loop=loop; h.timer=setTimeout(loop,150); try{ window.QEVXLog.log("INFO","tb.thread.start "+tk,{id:h.id}); }catch(e){} _tbPub(true); return h; };
   const _tbWatch=(mkt)=>{ const R=tbRef.current, now=Date.now(); R.wm=R.wm||{}; const S=R.wm[mkt]||(R.wm[mkt]={watch:[],wTs:0,rcKey:"",rr:0,pr:0}); const CRm=mkt==="CR"; const rc=Object.keys(R.recent||{}).filter(k=>now-R.recent[k]<180000&&_isCryptoTk(k)===CRm).slice(0,3); const rcKey=rc.join(); if(S.watch.length&&now-S.wTs<30000&&S.rcKey===rcKey) return S.watch; S.wTs=now; S.rcKey=rcKey; const cache=window.__scBars||{}; const sc=[];
     if(!CRm&&R.sg&&R.sg.list&&R.sg.list.length){ const gw=R.sg.list.map(x=>x.tk); S.watch=gw; R.watch=gw; return gw; }
-    const UU=_scUniNow(SC_UNI,mkt); UU.forEach(tk=>{ const c=cache[tk]; if(c&&c.bars&&c.bars.length>12){ const b=c.bars,k=b.length-1,a=b[Math.max(0,k-6)].close,l=b[k].close; if(a>0&&l>0) sc.push([tk,Math.abs(l/a-1)]); } });
+    let UU=_scUniNow(SC_UNI,mkt); if(CRm){ try{ const fb=UU.filter(tk=>!!QEBin.pair(tk)); if(fb.length>=4) UU=fb; }catch(e){} }   /* vc623: crypto scalps only coins quoted by Binance (tokenised stocks etc. have only Yahoo, which wastes scan slots when Yahoo is down) */
+    UU.forEach(tk=>{ const c=cache[tk]; if(c&&c.bars&&c.bars.length>12){ const b=c.bars,k=b.length-1,a=b[Math.max(0,k-6)].close,l=b[k].close; if(a>0&&l>0) sc.push([tk,Math.abs(l/a-1)]); } });
     const WN=CRm?9:6; if(CRm){ UU.forEach(tk=>{ const b=R.buf[tk]; if(b&&b.length>=8){ let nz=0; for(let i=1;i<b.length;i++) nz+=Math.abs(b[i].p-b[i-1].p)/b[i-1].p*100; nz/=(b.length-1); const a=b.find(x=>x.t>=now-30000)||b[0]; sc.push([tk,Math.abs(b[b.length-1].p-a.p)/a.p*100+nz*4]); } }); }   /* vc589: live micro-volatility ranks the coins that are moving right now */
     let w=rc.concat(sc.sort((x,y)=>y[1]-x[1]).map(x=>x[0]).filter(x=>rc.indexOf(x)<0)).slice(0,WN); if(w.length<WN){ for(let i=0;i<UU.length&&w.length<WN;i++){ const t0=UU[(S.rr+i)%UU.length]; if(w.indexOf(t0)<0) w.push(t0); } S.rr=(S.rr+3)%Math.max(1,UU.length); } S.watch=w; R.watch=w; return w; };
   const _tbIdle=(why,x)=>{ const R=tbRef.current, n=Date.now(); R.why=why; if(!(n-(R.idleTs||0)>60000)) return; R.idleTs=n; try{ if(_tbOn()) window.QEVXLog.log("INFO","tb.idle",Object.assign({why:why},x||{})); }catch(e){} };
@@ -22544,6 +22566,7 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
                       else if(px1>0) setVxMsg("🐕 "+t("dog_already").replace("{v}",v.toFixed(2))); }
                     _dogSet(dgTk,kd,isFinite(v)?v:0,{entry:dgEntry,dir:dgKind==="move"?"any":undefined,note:nt0}); setDgTk(""); setDgVal(""); },style:{background:T.bg2,border:`1.5px solid ${T.green}`,color:T.green,padding:"5px 10px",borderRadius:"7px",fontSize:"12.8px",fontFamily:"monospace",fontWeight:"800",cursor:"pointer"}},t("dog_add"))),
                   e(VxTip,{T:T,txt:t("dog_note")})),
+                e(ScalpSettings,{T:T,LANG:LANG,scalpOn:scalpOn,setScalpOn:(v)=>{ setScalpOnS(v); try{ localStorage.setItem("qe_vx_scalp",v?"1":"0"); }catch(x){} },scalpPct:scalpPct,setScalpPct:(v)=>{ setScalpPctS(v); try{ localStorage.setItem("qe_vx_scalp_pct",String(v)); }catch(x){} },tbOn:tbOnUi,setTbOn:(nv)=>{ setTbOnUi(nv); try{ localStorage.setItem("qe_turbo",nv?"1":"0"); }catch(x){} try{ window.QEVXLog.log("INFO","tb.toggle",{on:nv}); }catch(x){} },vxDdTxt:vxDdTxt,setDdNum:vxSetDdNum,onZeroLoss:vxZeroLoss,getTb:()=>{ try{ const r=_tbRp("CR"); return {lastOk:r.lastOk,scans:r.scans}; }catch(_e){ return {}; } }}),
                 e("div",{style:{marginTop:"10px",padding:"10px",border:`1.5px solid ${scalpOn?T.cyan:T.border}`,borderRadius:"10px",background:scalpOn?`${T.cyan}0d`:"transparent"}},
                   e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}},
                     e("div",{style:{fontSize:"14.1px",color:T.cyan,fontFamily:"monospace",fontWeight:"900"}},t("scalp_title")+" · "+(scalpOn?scalpPct+"%":"off")),
