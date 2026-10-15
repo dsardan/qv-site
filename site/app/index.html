@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.183</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.184</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.183";
+const QE_VERSION = "15.12.184";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -15330,10 +15330,10 @@ function VxPortfolio(props){
         e("div",{style:{marginTop:"4px",color:T.gray1}},L("dd")+" ×"+A.dd+" · equity "+fm(A.eq))):null,
       e("div",{style:{marginTop:"8px"}},e("b",null,L("spy")),e("div",{style:{color:T.gray1}},L("spyN")),
         (U&&U.spy&&U.spy.L)?e("div",{style:{fontFamily:"monospace"}},L("lv")+" "+U.spy.L.lo+" – "+U.spy.L.up+" · VWAP "+U.spy.L.vwap+" · σ "+U.spy.L.sg+"%"+(U.spy.pos&&U.spy.pos.SPY?(" · "+(U.spy.pos.SPY.side>0?"LONG":"SHORT")+" stop "+U.spy.pos.SPY.stop):"")):null,
-        e("div",{style:{fontFamily:"monospace",fontSize:"10.5px"}},logOf(U&&U.spy)), e("button",{"data-testid":"pf-run-spy",onClick:()=>props.onRun&&props.onRun("spy"),style:btn(false,T.cyan)},L("run"))),
+        (U&&U.spy&&U.spy.why)?e("div",{"data-testid":"pf-why-spy",style:{color:T.gold}},"⏸ "+U.spy.why):null, e("div",{style:{fontFamily:"monospace",fontSize:"10.5px"}},logOf(U&&U.spy)), e("button",{"data-testid":"pf-run-spy",onClick:()=>props.onRun&&props.onRun("spy"),style:btn(false,T.cyan)},L("run"))),
       e("div",{style:{marginTop:"8px"}},e("b",null,L("mom")),e("div",{style:{color:T.gray1}},L("momN")),
         (U&&U.mom&&U.mom.rank)?e("div",{style:{fontFamily:"monospace"}},L("mk")+": "+(U.mom.mk?"SPY > SMA200 ✓":"SPY < SMA200 ✗")+" · "+L("top")+": "+U.mom.rank.slice(0,10).map(r=>r.tk+" "+r.ret+"%").join(", ")):null,
-        e("div",{style:{fontFamily:"monospace",fontSize:"10.5px"}},logOf(U&&U.mom)), e("button",{"data-testid":"pf-run-mom",onClick:()=>props.onRun&&props.onRun("mom"),style:btn(false,T.cyan)},L("run"))),
+        (U&&U.mom&&U.mom.why)?e("div",{"data-testid":"pf-why-mom",style:{color:T.gold}},"⏸ "+U.mom.why):null, e("div",{style:{fontFamily:"monospace",fontSize:"10.5px"}},logOf(U&&U.mom)), e("button",{"data-testid":"pf-run-mom",onClick:()=>props.onRun&&props.onRun("mom"),style:btn(false,T.cyan)},L("run"))),
       e("div",{style:{marginTop:"8px"}},e("b",null,L("orb")),e("div",{style:{color:T.amber||T.gold}},L("orbN")),e("div",{style:{fontFamily:"monospace",fontSize:"10.5px"}},logOf(U&&U.orb)))));
 }
 function VxCtPanel(props){
@@ -19792,16 +19792,17 @@ function App(){
         if(!(price>0)){ row.dec="noprice"; rows.push(row); continue; }
         if((p&&!ctPos)||(th&&th.scalp)){ row.dec="busy"; rows.push(row); S.sig[tk]={s:g.s,n:g.n,m:g.m,ts:nowT}; continue; }
         if(!ctPos){
-          if(g.s>0&&tgt>=50&&krVeto){ row.dec="krveto"; }
-          else if(g.s>0&&tgt>=50){ const capCash=Math.max(0,a.cash-0.05*eq); const notional=Math.min(tgt,capCash); if(notional>=50){ const qty=Math.floor(notional/price*1e6)/1e6; const r=_ctTrade(tk,"buy",qty,price,"enter"); if(r){ row.dec="enter"; row.cur=Math.round(qty*price); const p2=r.acct.positions.find(x=>x.ticker===tk); S.pos[tk]={stop:+(p2.avg*(1-Math.min(0.25,Math.max(0.06,4*g.sd20)))).toFixed(6),ts:nowT,avg:p2.avg,sd:+g.sd20.toFixed(4)}; } else row.dec="refused"; } else row.dec="nocash"; }
+          const CTMIN=Math.max(10,Math.min(50,0.02*eq));   /* vc630: minimum ticket scales with the account (a $800 account could never reach $50 per coin) */
+          if(g.s>0&&tgt>=CTMIN&&krVeto){ row.dec="krveto"; }
+          else if(g.s>0&&tgt>=CTMIN){ const capCash=Math.max(0,a.cash-0.05*eq); const notional=Math.min(tgt,capCash); if(notional>=CTMIN){ const qty=Math.floor(notional/price*1e6)/1e6; const r=_ctTrade(tk,"buy",qty,price,"enter"); if(r){ row.dec="enter"; row.cur=Math.round(qty*price); const p2=r.acct.positions.find(x=>x.ticker===tk); S.pos[tk]={stop:+(p2.avg*(1-Math.min(0.25,Math.max(0.06,4*g.sd20)))).toFixed(6),ts:nowT,avg:p2.avg,sd:+g.sd20.toFixed(4)}; } else row.dec="refused"; } else row.dec="nocash"; }
           else row.dec=g.s>0?"small":"flat"; }
         else {
           if(g.s<prevS-1e-9||g.s===0){
             if(g.s===0){ const r=_ctTrade(tk,"sell",p.qty,price,"exit"); if(r){ row.dec="exit"; row.cur=0; delete S.pos[tk]; } else row.dec="refused"; }
-            else if(cur-tgt>0.1*cur&&cur-tgt>=50&&!(price>p.avg*1.003)){ row.dec="hold_noprofit"; }   /* vc628: owner's rule - a partial exit only in profit (the full exit is the channel trailing stop / catastrophe stop) */
-            else if(cur-tgt>0.1*cur&&cur-tgt>=50){ const qty=Math.min(p.qty,Math.floor((cur-tgt)/price*1e6)/1e6); const r=_ctTrade(tk,"sell",qty,price,"trim"); if(r){ row.dec="trim"; row.cur=Math.round(cur-qty*price); } else row.dec="refused"; } }
-          else if(g.s>prevS+1e-9&&tgt>cur*1.1&&tgt-cur>=50&&krVeto){ row.dec="krveto"; }
-          else if(g.s>prevS+1e-9&&tgt>cur*1.1&&tgt-cur>=50){ const capCash=Math.max(0,a.cash-0.05*eq); const notional=Math.min(tgt-cur,capCash); if(notional>=50){ const qty=Math.floor(notional/price*1e6)/1e6; const r=_ctTrade(tk,"buy",qty,price,"add"); if(r){ row.dec="add"; row.cur=Math.round(cur+qty*price); const p2=r.acct.positions.find(x=>x.ticker===tk); S.pos[tk]={stop:+(p2.avg*(1-Math.min(0.25,Math.max(0.06,4*g.sd20)))).toFixed(6),ts:(S.pos[tk]&&S.pos[tk].ts)||nowT,avg:p2.avg,sd:+g.sd20.toFixed(4)}; } else row.dec="refused"; } else row.dec="nocash"; } }
+            else if(cur-tgt>0.1*cur&&cur-tgt>=Math.max(10,Math.min(50,0.02*eq))&&!(price>p.avg*1.003)){ row.dec="hold_noprofit"; }   /* vc628: owner's rule - a partial exit only in profit (the full exit is the channel trailing stop / catastrophe stop) */
+            else if(cur-tgt>0.1*cur&&cur-tgt>=Math.max(10,Math.min(50,0.02*eq))){ const qty=Math.min(p.qty,Math.floor((cur-tgt)/price*1e6)/1e6); const r=_ctTrade(tk,"sell",qty,price,"trim"); if(r){ row.dec="trim"; row.cur=Math.round(cur-qty*price); } else row.dec="refused"; } }
+          else if(g.s>prevS+1e-9&&tgt>cur*1.1&&tgt-cur>=Math.max(10,Math.min(50,0.02*eq))&&krVeto){ row.dec="krveto"; }
+          else if(g.s>prevS+1e-9&&tgt>cur*1.1&&tgt-cur>=Math.max(10,Math.min(50,0.02*eq))){ const capCash=Math.max(0,a.cash-0.05*eq); const notional=Math.min(tgt-cur,capCash); if(notional>=Math.max(10,Math.min(50,0.02*eq))){ const qty=Math.floor(notional/price*1e6)/1e6; const r=_ctTrade(tk,"buy",qty,price,"add"); if(r){ row.dec="add"; row.cur=Math.round(cur+qty*price); const p2=r.acct.positions.find(x=>x.ticker===tk); S.pos[tk]={stop:+(p2.avg*(1-Math.min(0.25,Math.max(0.06,4*g.sd20)))).toFixed(6),ts:(S.pos[tk]&&S.pos[tk].ts)||nowT,avg:p2.avg,sd:+g.sd20.toFixed(4)}; } else row.dec="refused"; } else row.dec="nocash"; } }
         S.sig[tk]={s:g.s,n:g.n,m:g.m,ts:nowT}; rows.push(row); }
       S.ts=nowT; S.day=todayUtc; S.rows=rows; S.log=(S.log||[]).concat([{ts:nowT,txt:rows.filter(r=>r.dec==="enter"||r.dec==="add"||r.dec==="trim"||r.dec==="exit").map(r=>r.dec+" "+r.tk).join(", ")||"hold"}]).slice(-30);
       try{ window.QEVXLog.log("INFO","ct.eval",{coins:rows.length,lite:S.lite,cap:S.cap,rows:rows.map(r=>r.tk.replace("-USD","")+":"+(r.s!=null?r.s:"-")+"/"+r.dec).join(" ")}); }catch(e){}
@@ -19828,6 +19829,7 @@ function App(){
   const _stLoad=(k)=>{ try{ const o=JSON.parse(_lsGet(_stKey(k))||"null"); if(o&&typeof o==="object") return Object.assign({pos:{},log:[],ts:0},o); }catch(e){} return {pos:{},log:[],ts:0}; };
   const _stSave=(k,S)=>{ try{ S.log=(S.log||[]).slice(-30); _lsSet(_stKey(k),JSON.stringify(S)); }catch(e){} };
   const _stOn=(k)=>{ try{ const v=localStorage.getItem("qe_st_"+k); return k==="orb"?v==="1":v!=="0"; }catch(e){ return k!=="orb"; } };
+  const _stWhy=(k,S,why)=>{ S.why=why; S.whyTs=Date.now(); const key=k+":"+why; window.__stW=window.__stW||{}; if(Date.now()-(window.__stW[key]||0)>900000){ window.__stW[key]=Date.now(); try{ window.QEVXLog.log("INFO",k+".wait",why); }catch(e){} } };   /* vc630: why a strategy is not trading right now (shown in the panel + logged every 15 min) */
   const _stLog=(k,S,txt)=>{ S.log=(S.log||[]).concat([{ts:Date.now(),txt:txt}]).slice(-30); try{ window.QEVXLog.log("INFO",k+".note",txt); }catch(e){} };
   const _stTrade=(by,tk,side,qty,px,why)=>{ const acct=_acctLive(); if(!acct||!(qty>0)||!(px>0)) return null; const p=acct.positions.find(x=>x.ticker===tk&&x.qty!==0); const openTs=(p&&p.openTs)||Date.now();
     let r; try{ r=_vxApply(acct,side,tk,qty,px,_vxFeeFor(qty,px,tk),by,{limitMin:0,reason:by+"_"+why,openTs:openTs}); }catch(e){ r={ok:false,error:String(e&&e.message||e)}; }
@@ -19848,7 +19850,7 @@ function App(){
   const _usOpenNow=()=>{ try{ return window.QEHours.isOpen("US"); }catch(e){ return false; } };
   const _spyTick=async()=>{ const R=engRef.current; if(R.spyBusy||!_stOn("spy")||!_usOpenNow()) return; R.spyBusy=true; const S=_stLoad("spy"); const now=Date.now(); const et=QEIntra.etParts(now);
     try{ let bars=null; try{ bars=await Promise.race([_bars5m("SPY","1mo"),new Promise(r=>setTimeout(()=>r(null),9000))]); }catch(e){}
-      const L=bars?QEStrat.spyLevels(bars,now):null; S.L=(L&&!L.closedDay)?{up:+L.up.toFixed(2),lo:+L.lo.toFixed(2),vwap:+L.vwap.toFixed(2),sg:+(L.sigma*100).toFixed(3),sd:+(L.sdDaily*100).toFixed(2)}:null;
+      const L=bars?QEStrat.spyLevels(bars,now):null; if(!bars) _stWhy("spy",S,"no_5min_data"); else if(!L) _stWhy("spy",S,"short_history"); else if(et.min<600) _stWhy("spy",S,"before_10:00_ET"); else S.why=""; S.L=(L&&!L.closedDay)?{up:+L.up.toFixed(2),lo:+L.lo.toFixed(2),vwap:+L.vwap.toFixed(2),sg:+(L.sigma*100).toFixed(3),sd:+(L.sdDaily*100).toFixed(2)}:null;
       let px=0; try{ const q=await _quoteFast("SPY"); if(q&&q.price>0) px=q.price; }catch(e){} if(!(px>0)&&L&&!L.closedDay) px=L.last;
       const acct=_acctLive(); const p=acct.positions.find(x=>x.ticker==="SPY"&&x.qty!==0);
       if(p&&p.by==="spy"&&px>0){ const sd=p.qty>0?1:-1; const st=S.pos.SPY||(S.pos.SPY={side:sd,stop:0,ts:now});
@@ -19858,10 +19860,10 @@ function App(){
         else if(et.min>=955&&net>0){ if(_stTrade("spy","SPY",sd>0?"sell":"buy",Math.abs(p.qty),px,"eod")){ delete S.pos.SPY; _stLog("spy",S,"close in profit @"+px.toFixed(2)+" +"+net.toFixed(2)); } } }   /* end of day: closes only in profit; otherwise the trailing stop stays (owner's rule) */
       else if(!p&&L&&!L.closedDay&&px>0&&et.min>=600&&et.min<=935){ const slot=Math.floor((et.min-600)/30); const key=L.day+":"+slot;
         if(S.slot!==key&&(et.min-600)%30<10){ S.slot=key; const dir=QEStrat.spySignal(L,px);
-          if(dir){ const eq=_vxEquity(acct,{...vxPricesRef.current,SPY:px}).equity; const bud=_stBudget("spy",acct,{SPY:px}); const B=bud?bud.free:0.2*eq; let notional=QEStrat.spySize(B,L.sdDaily); if(dir>0) notional=Math.min(notional,acct.cash-0.05*eq); let qty=Math.floor(notional/px);
+          if(dir){ const eq=_vxEquity(acct,{...vxPricesRef.current,SPY:px}).equity; const bud=_stBudget("spy",acct,{SPY:px}); const B=bud?bud.free:0.2*eq; let notional=QEStrat.spySize(B,L.sdDaily); if(dir>0) notional=Math.min(notional,acct.cash-0.05*eq); let qty=Math.floor(notional/px*1000)/1000;   /* vc630: fractional shares (virtual exchange; Alpaca also supports them) - a small account can trade SPY */
             const stop=QEStrat.spyStop(L,dir); const stopPct=Math.max(0.2,Math.abs(px-stop)/px*100);
-            if(qty>=1){ const G=_h4Gate(acct,_loadAi(),{SPY:px},"SPY",dir,px,stopPct,qty,true); if(G.block) _stLog("spy",S,"blocked: "+G.block); else { if(G.qty>0) qty=Math.min(qty,Math.floor(G.qty)); if(qty>=1&&_stTrade("spy","SPY",dir>0?"buy":"sell",qty,px,"enter")){ S.pos.SPY={side:dir,stop:+stop.toFixed(2),ts:now}; _stLog("spy",S,(dir>0?"LONG ":"SHORT ")+qty+" @"+px.toFixed(2)+", stop "+stop.toFixed(2)); } } }
-            else _stLog("spy",S,"budget too small"); }
+            if(qty*px>=10){ const G=_h4Gate(acct,_loadAi(),{SPY:px},"SPY",dir,px,stopPct,qty,true); if(G.block) _stLog("spy",S,"blocked: "+G.block); else { if(G.qty>0) qty=Math.min(qty,Math.floor(G.qty*1000)/1000); if(qty*px>=10&&_stTrade("spy","SPY",dir>0?"buy":"sell",qty,px,"enter")){ S.pos.SPY={side:dir,stop:+stop.toFixed(2),ts:now}; _stLog("spy",S,(dir>0?"LONG ":"SHORT ")+qty+" @"+px.toFixed(2)+", stop "+stop.toFixed(2)); } } }
+            else _stWhy("spy",S,"budget_too_small"); }
           else _stLog("spy",S,"inside the noise area "+L.lo.toFixed(2)+"–"+L.up.toFixed(2)+" - no trade"); } }
       S.ts=now; S.px=px; S.err=""; }catch(e){ S.err=String(e&&e.message||e).slice(0,100); try{ window.QEVXLog.err("spy.tick",e); }catch(_){} } finally{ R.spyBusy=false; _stSave("spy",S); _stPubAll(); } };
   const _momTick=async(force)=>{ const R=engRef.current; if(R.momBusy||!_stOn("mom")||(!force&&!_usOpenNow())) return; R.momBusy=true; const S=_stLoad("mom"); const now=Date.now(); const et=QEIntra.etParts(now); const month=et.day.slice(0,7);
@@ -19869,19 +19871,20 @@ function App(){
       for(const p of acct.positions.filter(x=>x.by==="mom"&&x.qty>0)){ let px=0; try{ const q=await _quoteFast(p.ticker); if(q&&q.price>0) px=q.price; }catch(e){} if(!(px>0)) continue;
         const st=S.pos[p.ticker]||(S.pos[p.ticker]={stop:+(p.avg*0.85).toFixed(2),pk:p.avg,pct:0.15,ts:now}); if(px>(st.pk||0)) st.pk=px; const tr=+(st.pk*(1-st.pct)).toFixed(2); if(tr>st.stop) st.stop=tr;   /* trailing stop, never loosened */
         if(px<=st.stop&&_stTrade("mom",p.ticker,"sell",p.qty,px,"stop")){ delete S.pos[p.ticker]; _stLog("mom",S,"stop "+p.ticker+" @"+px.toFixed(2)); } }
+      if(S.month!==month&&!force&&et.min<600) _stWhy("mom",S,"rebalance_after_10:00_ET"); else if(S.month===month) S.why="";
       if(S.month!==month&&(force||et.min>=600)){ S.month=month; const map={}; let ix=0; const uni=MOM_UNI.concat(["SPY"]);
-        const worker=async()=>{ while(ix<uni.length){ const tk=uni[ix++]; try{ const r=await fetchDailyBars(tk,"2y"); if(r&&r.length) map[tk]=r.map(x=>x.close); }catch(e){} } };
+        const worker=async()=>{ while(ix<uni.length){ const tk=uni[ix++]; try{ const r=await Promise.race([fetchDailyBars(tk,"2y"),new Promise(res=>setTimeout(()=>res(null),10000))]); if(r&&r.length) map[tk]=r.map(x=>x.close); }catch(e){}   /* vc630: 10 s per symbol - a hanging Yahoo request no longer blocks the rebalance for minutes */ } };
         await Promise.all([worker(),worker(),worker(),worker()]);
         const mk=QEStrat.marketOk(map.SPY); delete map.SPY; const rows=QEStrat.momRank(map); const top=mk?rows.filter(r=>r.ret>0).slice(0,10):[];
         S.rank=rows.slice(0,15).map(r=>({tk:r.tk,ret:+(r.ret*100).toFixed(1)})); S.mk=mk; S.nData=Object.keys(map).length; S.top=top.map(r=>r.tk);
-        if(S.nData<20){ S.month=""; _stLog("mom",S,"not enough price data ("+S.nData+") - will retry"); }
+        if(S.nData<20){ S.month=""; _stWhy("mom",S,"no_price_data_"+S.nData+"/60"); }
         else {
           for(const p of _acctLive().positions.filter(x=>x.by==="mom"&&x.qty>0)){ if(top.some(r=>r.tk===p.ticker)) continue; let px=0; try{ const q=await _quoteFast(p.ticker); px=(q&&q.price)||0; }catch(e){}
             if(px>p.avg*1.003){ if(_stTrade("mom",p.ticker,"sell",p.qty,px,"rebalance")){ delete S.pos[p.ticker]; _stLog("mom",S,"left the top-10, sold in profit: "+p.ticker); } } else _stLog("mom",S,"left the top-10 but not in profit - kept with its stop: "+p.ticker); }
           const W=QEStrat.momWeights(top); const bud=_stBudget("mom",_acctLive(),{}); const budTot=bud?bud.tot:0.2*_vxEquity(_acctLive(),vxPricesRef.current).equity;
           for(const r of top){ const a=_acctLive(); if(a.positions.some(p=>p.ticker===r.tk&&p.qty!==0)) continue; let px=0; try{ const q=await _quoteFast(r.tk); px=(q&&q.price)||0; }catch(e){} if(!(px>0)) continue;
-            const eq=_vxEquity(a,vxPricesRef.current).equity; let notional=Math.min(budTot*W[r.tk],budTot-_stUsed(a,"mom"),a.cash-0.05*eq); let qty=Math.floor(notional/px); if(qty<1) continue;
-            const sp=QEStrat.momStopPct(r.sdd); const G=_h4Gate(a,_loadAi(),{[r.tk]:px},r.tk,1,px,sp*100,qty,false); if(G.block){ _stLog("mom",S,"blocked "+r.tk+": "+G.block); continue; } if(G.qty>0) qty=Math.min(qty,Math.floor(G.qty)); if(qty<1) continue;
+            const eq=_vxEquity(a,vxPricesRef.current).equity; let notional=Math.min(budTot*W[r.tk],budTot-_stUsed(a,"mom"),a.cash-0.05*eq); let qty=Math.floor(notional/px*1000)/1000; if(qty*px<10) continue;
+            const sp=QEStrat.momStopPct(r.sdd); const G=_h4Gate(a,_loadAi(),{[r.tk]:px},r.tk,1,px,sp*100,qty,false); if(G.block){ _stLog("mom",S,"blocked "+r.tk+": "+G.block); continue; } if(G.qty>0) qty=Math.min(qty,Math.floor(G.qty*1000)/1000); if(qty*px<10) continue;
             if(_stTrade("mom",r.tk,"buy",qty,px,"enter")){ S.pos[r.tk]={stop:+(px*(1-sp)).toFixed(2),pk:px,pct:+sp.toFixed(3),ts:now}; _stLog("mom",S,"buy "+r.tk+" ×"+qty+" (12-1 return "+(r.ret*100).toFixed(0)+"%)"); } }
           if(!mk) _stLog("mom",S,"market filter: SPY below its 200-day average - no new buys this month"); } }
       S.ts=now; S.err=""; }catch(e){ S.err=String(e&&e.message||e).slice(0,100); try{ window.QEVXLog.err("mom.tick",e); }catch(_){} } finally{ R.momBusy=false; _stSave("mom",S); _stPubAll(); } };
@@ -19896,8 +19899,8 @@ function App(){
         _stLog("orb",S,"stocks in play: "+list.length+", setups: "+Object.keys(S.setups).length); }
       if(S.setups&&S.day===et.day&&et.min>=576&&et.min<900){ for(const tk of Object.keys(S.setups)){ if(S.done&&S.done[tk]) continue; const su=S.setups[tk]; let px=0; try{ const q=await _quoteFast(tk); px=(q&&q.price)||0; }catch(e){} if(!(px>0)) continue;
           if(su.dir>0?px>su.trigger:px<su.trigger){ S.done[tk]=1; const a=_acctLive(); if(a.positions.some(p=>p.ticker===tk&&p.qty!==0)) continue; const eq=_vxEquity(a,vxPricesRef.current).equity; const bud=_stBudget("orb",a,{[tk]:px}); const B=bud?bud.free:0.1*eq;
-            let qty=Math.floor(Math.min(0.01*B/su.stopDist, B/4/px, su.dir>0?(a.cash-0.05*eq)/px:Infinity)); if(qty<1) continue; const stop=px-su.dir*su.stopDist;
-            const G=_h4Gate(a,_loadAi(),{[tk]:px},tk,su.dir,px,su.stopDist/px*100,qty,true); if(G.block){ _stLog("orb",S,"blocked "+tk+": "+G.block); continue; } if(G.qty>0) qty=Math.min(qty,Math.floor(G.qty)); if(qty<1) continue;
+            let qty=Math.floor(Math.min(0.01*B/su.stopDist, B/4/px, su.dir>0?(a.cash-0.05*eq)/px:Infinity)*1000)/1000; if(qty*px<10) continue; const stop=px-su.dir*su.stopDist;
+            const G=_h4Gate(a,_loadAi(),{[tk]:px},tk,su.dir,px,su.stopDist/px*100,qty,true); if(G.block){ _stLog("orb",S,"blocked "+tk+": "+G.block); continue; } if(G.qty>0) qty=Math.min(qty,Math.floor(G.qty*1000)/1000); if(qty*px<10) continue;
             if(_stTrade("orb",tk,su.dir>0?"buy":"sell",qty,px,"enter")){ S.pos[tk]={stop:+stop.toFixed(4),side:su.dir,ts:now}; _stLog("orb",S,(su.dir>0?"LONG ":"SHORT ")+tk+" ×"+qty+" stop "+stop.toFixed(2)); } } } }
       S.ts=now; S.err=""; }catch(e){ S.err=String(e&&e.message||e).slice(0,100); try{ window.QEVXLog.err("orb.tick",e); }catch(_){} } finally{ R.orbBusy=false; _stSave("orb",S); _stPubAll(); } };
   useEffect(()=>{ if(!authUser) return; const t0=setTimeout(()=>{ _stPubAll(); },1500); const i1=setInterval(()=>{ _spyTick(); },60000); const i2=setInterval(()=>{ _momTick(false); },300000); const i3=setInterval(()=>{ _orbTick(); },30000); const i4=setInterval(()=>{ _stPubAll(); },20000);
