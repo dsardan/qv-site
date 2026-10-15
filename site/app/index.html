@@ -164,7 +164,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 </svg></div>
 <div class="sp-brand" style="position:relative;z-index:1">QuantView</div>
 <div class="sp-sub" id="qe-splash-sub" style="position:relative;z-index:1">Сарик Даников</div>
-<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.186</div>
+<div class="sp-ver" id="qe-splash-ver" style="position:relative;z-index:1">v 15.12.187</div>
 <div class="sp-load" style="position:relative;z-index:1"><span>◆</span> <span id="qe-splash-load">Загрузка движка...</span></div>
 </div>
 <script>try{var _sl=localStorage.getItem("qe_lang"),_sn={he:["סאריק דניקוב","טוען מנוע..."],en:["Sarik Danikov","Loading engine..."]}[_sl];if(_sn){document.getElementById("qe-splash-sub").textContent=_sn[0];document.getElementById("qe-splash-load").textContent=_sn[1];}}catch(e){}</script>
@@ -556,7 +556,7 @@ window.QEX.protect(["Twelve Data", "Financial Modeling Prep", "Polygon.io", "Alp
 /* Single source of truth for the version. It lives HERE, in the first script block, because
    the startup log below runs before block 5 is parsed — reading APP_VERSION from there printed
    "v?" (the same scope mistake that hid _TL). Block 5 derives APP_VERSION from this. */
-const QE_VERSION = "15.12.186";
+const QE_VERSION = "15.12.187";
 try{ window.QE_VERSION = QE_VERSION; }catch(e){}
 // The splash version used to be a hardcoded literal and had drifted 34 builds behind
 // (it still read v15.11.04). Drive it from the single source of truth instead.
@@ -6227,7 +6227,7 @@ window.QEGOAL=(function(){ var KEY="qe_vx_goal_v1", eqFn=null, openFn=null;
   /* vc632: a deposit / withdrawal / budget reset is NOT profit: shift the window and day baselines by the cash flow, and undo a "hit" that the cash flow itself caused */
   function rebase(delta){ var g=load(); if(!(isFinite(delta))||Math.abs(delta)<1e-9) return; if(g.eq0>0) g.eq0=+(g.eq0+delta).toFixed(2); if(g.day&&g.day.eq0>0) g.day.eq0=+(g.day.eq0+delta).toFixed(2);
     if(g.status==="hit"||g.status==="stop"){ if(g.on) g.status="run"; } if(g.day&&(g.day.done==="hit"||g.day.done==="stop")) g.day.done=null; g.net=0; g.peak=0; g.low=0; g.rebTs=Date.now(); save(g); log("INFO","goal.rebase",{delta:+(+delta).toFixed(2)}); }
-  /* one-time repair (vc632): a budget reset done in 15.12.186 counted as a goal "hit" and halted the AI for the whole day */
+  /* one-time repair (vc632): a budget reset done in 15.12.187 counted as a goal "hit" and halted the AI for the whole day */
   function repair(e){ var g=load(); if(!(e>0)) return false; var ch=false; if(g.day&&(g.day.done==='hit'||g.day.done==='stop')&&g.day.eq0>0&&Math.abs(e-g.day.eq0)>3*dayTarget(g)){ g.day.eq0=e; g.day.done=null; ch=true; } if(g.on&&(g.status==='hit'||g.status==='stop')&&g.eq0>0&&Math.abs(e-g.eq0)>3*(g.target||1)){ g.eq0=e; g.status='run'; g.net=0; g.peak=0; g.low=0; ch=true; } if(ch){ save(g); log('INFO','goal.repair',{eq:+e.toFixed(2)}); } return ch; }
   return {repair:repair,rebase:rebase,load:load,start:start,stop:stop,update:update,halted:halted,mult:mult,feas:feas,dayTarget:dayTarget,setEq:function(f){ eqFn=f; },setOpen:function(f){ openFn=f; }}; })();
 window.QEVXLog=(function(){ var KEY="qe_vxlog_v1", MAX=500;
@@ -15302,6 +15302,15 @@ function ScanReport(props){
         deadL.length>0&&e("button",{onClick:()=>{ try{ window.QESR.revive(); }catch(er){} setN(x=>x+1); },style:{...btn(T.border),marginTop:"6px"}},tr("revive"))),
       e("div",{style:{fontSize:"10.8px",color:T.gray2,fontFamily:"monospace",marginTop:"8px",lineHeight:1.5}},tr("note"))));
 }
+/* vc633: an electrical toggle switch (owner: «все включатели и выключатели сделай как электрические тумблеры») - track + knob, green and lit when ON, grey when OFF, plus the word ВКЛ/ВЫКЛ; role="switch" */
+function QSwitch(p){ const e=React.createElement, T=p.T||{}, on=!!p.on, LG=p.LANG||"ru", big=!!p.big; const W=big?58:46, H=big?30:24, K=H-6;
+  const G=T.green||"#16a34a", OFFC=T.gray2||"#9ca3af"; const txt=on?(({ru:"ВКЛ",he:"פעיל",en:"ON"})[LG]||"ON"):(({ru:"ВЫКЛ",he:"כבוי",en:"OFF"})[LG]||"OFF");
+  return e("button",{type:"button",role:"switch","aria-checked":on?"true":"false","aria-pressed":on?"true":"false","data-testid":p.testid,"data-on":on?"1":"0",onClick:p.onClick,title:p.title||"",
+      style:Object.assign({display:"inline-flex",alignItems:"center",gap:"8px",background:"transparent",border:"none",padding:"2px 0",cursor:"pointer",fontFamily:"monospace",fontWeight:"800",fontSize:big?"14px":"12px",direction:"ltr"},p.style||{})},
+    p.label?e("span",{style:{color:on?G:(T.gray1||"#888"),textAlign:"left"}},p.label):null,
+    e("span",{"aria-hidden":"true",style:{position:"relative",display:"inline-block",width:W+"px",height:H+"px",borderRadius:H+"px",background:on?G:OFFC,boxShadow:on?("0 0 10px "+G+"99, inset 0 1px 3px rgba(0,0,0,.25)"):"inset 0 2px 4px rgba(0,0,0,.35)",transition:"background .2s, box-shadow .2s",flex:"0 0 auto"}},
+      e("span",{style:{position:"absolute",top:"3px",left:(on?(W-K-3):3)+"px",width:K+"px",height:K+"px",borderRadius:"50%",background:"#fff",boxShadow:"0 2px 4px rgba(0,0,0,.45)",transition:"left .2s"}})),
+    e("span",{style:{minWidth:big?"46px":"38px",color:on?G:(T.gray1||"#888"),textAlign:"left"}},txt)); }
 function VxPortfolio(props){
   const e=React.createElement; const T=props.T; const LG=props.LANG||"ru"; const U=props.ui; const [,setN]=useState(0); const [open,setOpen]=useState(true);
   const X={ttl:{ru:"🧭 Портфельный бот — распределитель риска",he:"🧭 בוט תיק — מקצה סיכון",en:"🧭 Portfolio bot — risk allocator"},
@@ -15321,17 +15330,17 @@ function VxPortfolio(props){
   return e("div",{"data-testid":"pf-box",style:{marginTop:"10px",padding:"10px",border:`1.5px solid ${T.cyan}`,borderRadius:"10px",background:T.bg2}},
     e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"8px"}},
       e("div",{onClick:()=>setOpen(!open),style:{fontSize:"13.5px",color:T.cyan,fontFamily:"monospace",fontWeight:"900",cursor:"pointer"}},L("ttl")+(open?" ▾":" ▸")),
-      e("button",{"data-testid":"pf-on",onClick:()=>{ props.onAlloc&&props.onAlloc(); setN(x=>x+1); },style:btn(U&&U.on,T.green)},(U&&U.on)?"ON":"OFF")),
+      e(QSwitch,{T:T,LANG:LG,testid:"pf-on",on:!!(U&&U.on),onClick:()=>{ props.onAlloc&&props.onAlloc(); setN(x=>x+1); }})),
     open&&e("div",{style:{fontSize:"11.5px",color:T.text,lineHeight:1.45,marginTop:"6px"}},
       e("div",{style:{color:T.gray1}},L("note")),
       A?e("div",{style:{marginTop:"6px",fontFamily:"monospace"}},
-        keys.map(k=>{ const p=A.P[k]; const onK=A.on[k]; const canTog=(k==="spy"||k==="mom"||k==="orb");
+        keys.map(k=>{ const p=A.P[k]; const onK=A.on[k]; const canTog=(k!=="ai");
           return e("div",{key:k,"data-testid":"pf-row-"+k,style:{display:"flex",flexWrap:"wrap",justifyContent:"space-between",alignItems:"center",gap:"4px",padding:"4px 0",borderBottom:"1px solid "+T.border}},
             e("span",{style:{fontWeight:700,minWidth:"150px"}},L(k)),
             e("span",null,onK&&p?(L("bud")+" "+fm(p.usd)+" ("+p.pct+"%) · "+L("used")+" "+fm(p.used)+" · "+p.n+" · "+p.pf+" · "+(p.sum>=0?"+":"")+fm(p.sum).replace("$","$")+(p.mult<1?" ×"+p.mult:"")):L("off")),
             e("span",{style:{display:"flex",gap:"4px",alignItems:"center"}},
               e("input",{"data-testid":"pf-w-"+k,type:"text",inputMode:"decimal",defaultValue:String((A&&props.base&&props.base[k]!=null)?props.base[k]:""),onBlur:(ev)=>{ props.onWeight&&props.onWeight(k,ev.target.value); setN(x=>x+1); },title:L("w"),style:{width:"38px",background:T.bg1,border:"1px solid "+T.border,color:T.text,borderRadius:"6px",padding:"2px 4px",fontFamily:"monospace",fontSize:"11px",direction:"ltr"}}),
-              canTog?e("button",{"data-testid":"pf-t-"+k,onClick:()=>tog(k),style:btn(onK,T.gold)},onK?"ON":"OFF"):null)); }),
+              canTog?e(QSwitch,{T:T,LANG:LG,testid:"pf-t-"+k,on:!!onK,onClick:()=>tog(k)}):null)); }),
         e("div",{style:{marginTop:"4px",color:T.gray1}},L("dd")+" ×"+A.dd+" · equity "+fm(A.eq))):null,
       e("div",{style:{marginTop:"8px"}},e("b",null,L("spy")),e("div",{style:{color:T.gray1}},L("spyN")),
         (U&&U.spy&&U.spy.L)?e("div",{style:{fontFamily:"monospace"}},L("lv")+" "+U.spy.L.lo+" – "+U.spy.L.up+" · VWAP "+U.spy.L.vwap+" · σ "+U.spy.L.sg+"%"+(U.spy.pos&&U.spy.pos.SPY?(" · "+(U.spy.pos.SPY.side>0?"LONG":"SHORT")+" stop "+U.spy.pos.SPY.stop):"")):null,
@@ -15374,7 +15383,7 @@ function VxCtPanel(props){
   return e("div",{"data-testid":"ctpanel",style:{background:T.bg1,border:`1px solid ${cfg.on?T.green:T.border}66`,borderRadius:"12px",padding:"10px 12px",marginBottom:"12px"}},
     e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px"}},
       e("div",{style:{fontSize:"14px",color:T.green,fontFamily:"monospace",fontWeight:"900"}},tr("title")),
-      e("button",{onClick:()=>props.onCfg({on:!cfg.on}),"data-testid":"ct-toggle","aria-pressed":cfg.on?"true":"false",style:{...btn(cfg.on?T.green:T.gray2)}},cfg.on?tr("on"):tr("off"))),
+      e(QSwitch,{T:T,LANG:LG,testid:"ct-toggle",on:!!cfg.on,onClick:()=>props.onCfg({on:!cfg.on})})),
     e("div",{style:{fontSize:"11.2px",color:T.gray1,fontFamily:"monospace",lineHeight:1.5,margin:"6px 0"}},tr("desc")),
     e("div",{style:{display:"flex",gap:"14px",flexWrap:"wrap",alignItems:"center",margin:"6px 0"}},
       e("label",{style:{fontSize:"11.5px",color:T.gray1,fontFamily:"monospace",display:"flex",gap:"6px",alignItems:"center"}},tr("pct"),num("pct",0,100)),
@@ -15494,11 +15503,12 @@ function H4Box(props){
   const st=(pref)=>{ let n=0,w=0,sum=0; try{ ((acct&&acct.history)||[]).forEach(h=>{ if(h&&h.net!=null&&String(h.reason||"").indexOf(pref)===0){ n++; if(h.net>0) w++; sum+=h.net; } }); }catch(_){} return {n:n,w:w,sum:sum}; };
   const a=st("h4_"); const f=(o)=>o.n?(o.n+" "+L("tr")+" · "+Math.round(o.w/o.n*100)+"% "+L("wn")+" · "+(o.sum>=0?"+":"")+"$"+o.sum.toFixed(2)):L("none");
   let openH4=[]; try{ const m=window.QEAI?null:null; }catch(_){}
-  const toggle=()=>{ const v=!on; setOn(v); try{ localStorage.setItem("qe_h4",v?"1":"0"); }catch(_){} try{ window.QEVXLog.log("INFO","h4.toggle",{on:v}); }catch(_){} if(v){ try{ window.__h4Tick&&window.__h4Tick(); }catch(_){} } };
+  const onLS=(()=>{ try{ return localStorage.getItem("qe_h4")==="1"; }catch(_){ return on; } })();   /* vc633: follows the portfolio-bot switch too */
+  const toggle=()=>{ const v=!onLS; setOn(v); try{ localStorage.setItem("qe_h4",v?"1":"0"); }catch(_){} try{ window.QEVXLog.log("INFO","h4.toggle",{on:v}); }catch(_){} if(v){ try{ window.__h4Tick&&window.__h4Tick(); }catch(_){} } };
   return e("div",{"data-testid":"h4-box",style:{background:T.bg2,border:`1px solid ${T.border}`,borderRadius:"10px",padding:"10px 12px",margin:"8px 0"}},
     e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px"}},
       e("div",{style:{fontSize:"12px",fontWeight:700,color:T.text}},L("ttl")),
-      e("button",{"data-testid":"h4-toggle",onClick:toggle,style:{background:on?T.green:T.bg1,color:on?"#fff":T.text,border:`1px solid ${on?T.green:T.border}`,borderRadius:"8px",padding:"4px 10px",fontSize:"11px",fontWeight:700,cursor:"pointer"}},(on?"✓ ":"")+L("on"))),
+      e(QSwitch,{T:T,LANG:LG,testid:"h4-toggle",on:!!onLS,onClick:toggle})),
     e("div",{style:{fontSize:"10.5px",color:T.gray1,marginTop:"6px",lineHeight:1.4}},L("ds")),
     e("div",{style:{fontSize:"10.5px",color:T.text,marginTop:"6px"}},e("b",null,L("cmp"))),
     e("div",{"data-testid":"h4-cmp",style:{fontSize:"10.5px",color:T.text,marginTop:"2px",fontFamily:"monospace"}},L("h4")+": "+f(a)),
@@ -19142,8 +19152,8 @@ function App(){
   const _curveKey=()=>_vxKey().replace("qe_vexchange_","qe_vxcurve_");
   const _aiKey=()=>_vxKey().replace("qe_vexchange_","qe_vxai_");
   const _loadAi=()=>{ try{ const s=_lsGet(_aiKey()); const m=s?JSON.parse(s):_vxAiDefault(); if(!m.open)m.open={}; if(!m.closed)m.closed=[]; Object.defineProperty(m,"__ld",{value:Date.now(),enumerable:false,writable:true}); return m; }catch(e){ return _vxAiDefault(); } };
-  /* vc562: scalp threads write their own entries (turbo:true) into the same memory. A slower writer (the swing cycle) that loaded the memory BEFORE such an entry appeared must not erase it on save. */
-  const _saveAi=(m)=>{ try{ if(m&&m.open&&m.__ld){ const cur=JSON.parse(_lsGet(_aiKey())||"null"); if(cur&&cur.open){ for(const k in cur.open){ const c=cur.open[k]; if(c&&c.turbo&&!m.open[k]&&c.ts>m.__ld) m.open[k]=c; } } } }catch(e){} _lsSet(_aiKey(),JSON.stringify(m)); };
+  /* vc562/vc633: other engines (H4 slow swing, earlier the scalp threads) write their own entries into the same memory. A slower writer (the swing cycle) that loaded the memory BEFORE such an entry appeared must not erase it on save (vc633: all newer entries, not only turbo ones - H4 positions were losing their stop). */
+  const _saveAi=(m)=>{ try{ if(m&&m.open&&m.__ld){ const cur=JSON.parse(_lsGet(_aiKey())||"null"); if(cur&&cur.open){ for(const k in cur.open){ const c=cur.open[k]; if(c&&!m.open[k]&&c.ts>m.__ld) m.open[k]=c; } } if(cur&&cur.h4&&cur.h4.last){ m.h4=m.h4||{last:{}}; m.h4.last=m.h4.last||{}; for(const k in cur.h4.last){ if(!(m.h4.last[k]>=cur.h4.last[k])) m.h4.last[k]=cur.h4.last[k]; } } } }catch(e){}   /* vc633: also keep H4 one-trade-per-bar marks */ _lsSet(_aiKey(),JSON.stringify(m)); };
   /* vc562: every ledger mutation by the heavy cycle is applied to the FRESH stored account (a scalp thread may have traded meanwhile), and the swing side may never add to a ticker owned by a scalp thread */
   const _vxApplyF=(a,action,tk,qty,px,fee,by,meta)=>{ const cur=_acctNow()||a; try{ if(!(meta&&meta.scalp)){ const th=(_loadAi().open||{})[tk]; if(th&&th.turbo&&cur.positions.some(p=>p.ticker===tk&&p.qty!==0)) return {ok:false,error:"scalp_owned"}; } }catch(e){} return _vxApply(cur,action,tk,qty,px,fee,by,meta); };
   const _loadCurve=()=>{ try{ return JSON.parse(_lsGet(_curveKey())||"[]"); }catch(e){ return []; } };
@@ -19745,7 +19755,7 @@ function App(){
       const G=_h4Gate(acct,mem,pm,tk,dir,px,stopPct,qty); if(G.block){ _h4GateLog(tk,G); continue; } if(G.qty!==qty){ qty=G.qty; } if(qty*px<10) continue;
       const fee=_vxFeeFor(qty,px,tk); const r=_vxApply(acct,dir>0?"buy":"sell",tk,qty,px,fee,"ai",{limitMin:100000}); if(!r.ok) continue;
       _saveVX(r.acct); acct=r.acct; nOpen++;
-      mem.open[tk]={side:dir>0?"long":"short",conf:null,entryPrice:px,qty:qty,ts:now,target:+(px*(1+dir*2*stopPct/100)).toFixed(4),stop:+(px*(1-dir*stopPct/100)).toFixed(4),limitMin:100000,h4:true,r1:+(px*stopPct/100).toFixed(4),pk:0,signs:null,plan:{rr:2,src:{t:"h4",s:"trend"},tp:+(2*stopPct).toFixed(2),sp:+stopPct.toFixed(2)}};
+      mem.open[tk]={side:dir>0?"long":"short",conf:null,entryPrice:px,qty:qty,ts:Date.now(),target:+(px*(1+dir*2*stopPct/100)).toFixed(4),stop:+(px*(1-dir*stopPct/100)).toFixed(4),limitMin:100000,h4:true,r1:+(px*stopPct/100).toFixed(4),pk:0,signs:null,plan:{rr:2,src:{t:"h4",s:"trend"},tp:+(2*stopPct).toFixed(2),sp:+stopPct.toFixed(2)}};
       _saveAi(mem); setVxPrices(prev=>({...prev,[tk]:px}));
       try{ window.QEVXLog.log("INFO","h4.entry "+tk,{side:dir>0?"long":"short",qty:qty,px:px,stop:mem.open[tk].stop,target:mem.open[tk].target,sp:+stopPct.toFixed(2),r:rr,fee:+fee.toFixed(3)}); }catch(e){} }
     _saveAi(mem);
@@ -22044,12 +22054,11 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
                   e("button",{onClick:vxAutoPlay,disabled:vxAiBusy||vxBusy||vxAuto,style:{flex:"1 1 auto",background:vxAiBusy?T.bg2:`linear-gradient(135deg,${T.purple}2a,${T.cyan}18)`,border:`1.5px solid ${T.purple}`,color:T.purple,padding:"12px",fontSize:"15.4px",fontFamily:"monospace",fontWeight:"900",letterSpacing:"0.5px",cursor:(vxAiBusy||vxBusy||vxAuto)?"default":"pointer",borderRadius:"10px",display:"flex",alignItems:"center",justifyContent:"center",gap:"8px",opacity:vxAuto?0.6:1}},
                     vxAiBusy?e("span",{style:{width:"13px",height:"13px",borderRadius:"50%",border:`2px solid ${T.purple}`,borderTopColor:"transparent",display:"inline-block",animation:"spin .7s linear infinite"}}):null,
                     vxAiBusy?t("vx_ai_running"):("🤖 "+t("vx_ai_play"))),
-                  e("button",{onClick:()=>setVxAuto(!vxAuto),style:{flex:"0 0 auto",background:vxAuto?`${T.green}22`:T.bg2,border:`1.5px solid ${vxAuto?T.green:T.border}`,color:vxAuto?T.green:T.gray2,padding:"12px 14px",fontSize:"14.1px",fontFamily:"monospace",fontWeight:"900",cursor:"pointer",borderRadius:"10px"}},
-                    (vxAuto?"⏸ ":"♾ ")+t("vx_ai_auto"))),
+                  e(QSwitch,{T:T,LANG:LANG,big:true,testid:"vx-auto",on:!!vxAuto,label:"♾ "+t("vx_ai_auto"),onClick:()=>setVxAuto(!vxAuto),style:{flex:"0 0 auto",padding:"6px 4px"}})),
                 vxAuto&&e("div",{style:{fontSize:"12px",color:T.green,fontFamily:"monospace",marginTop:"6px",textAlign:"center"}},"● "+t("vx_live")+(vxLast?" · "+t("vx_last")+" "+new Date(vxLast).toLocaleTimeString():"")),
                 vxMsg&&e("div",{style:{fontSize:"12px",color:T.gray1,fontFamily:"monospace",marginTop:"8px",textAlign:"center",lineHeight:1.4}},vxMsg)
               ),
-              e(VxPortfolio,{T:T,LANG:LANG,ui:pfUi,base:_allocBase(),onAlloc:()=>{ try{ localStorage.setItem("qe_alloc",_allocOn()?"0":"1"); }catch(x){} _stPubAll(); },onToggle:(k)=>{ try{ const on=_stOn(k); localStorage.setItem("qe_st_"+k,on?"0":"1"); window.QEVXLog.log("INFO","pf.toggle",{k:k,on:!on}); }catch(x){} _stPubAll(); },onWeight:(k,v)=>{ const x=parseFloat(String(v).replace(",",".")); try{ if(x>=0&&x<=100) localStorage.setItem("qe_alloc_w_"+k,String(x)); }catch(_x){} _stPubAll(); },onRun:(k)=>{ if(k==="spy") _spyTick(); else if(k==="mom"){ const S=_stLoad("mom"); S.month=""; _stSave("mom",S); _momTick(true); } }}),
+              e(VxPortfolio,{T:T,LANG:LANG,ui:pfUi,base:_allocBase(),onAlloc:()=>{ try{ localStorage.setItem("qe_alloc",_allocOn()?"0":"1"); }catch(x){} _stPubAll(); },onToggle:(k)=>{ try{ if(k==="ct"){ _setCt({on:!_ctCfg().on}); } else if(k==="h4"){ const v=localStorage.getItem("qe_h4")!=="1"; localStorage.setItem("qe_h4",v?"1":"0"); window.QEVXLog.log("INFO","h4.toggle",{on:v}); } else { const on=_stOn(k); localStorage.setItem("qe_st_"+k,on?"0":"1"); window.QEVXLog.log("INFO","pf.toggle",{k:k,on:!on}); } }catch(x){} setTimeout(_stPubAll,50); },onWeight:(k,v)=>{ const x=parseFloat(String(v).replace(",",".")); try{ if(x>=0&&x<=100) localStorage.setItem("qe_alloc_w_"+k,String(x)); }catch(_x){} _stPubAll(); },onRun:(k)=>{ if(k==="spy") _spyTick(); else if(k==="mom"){ const S=_stLoad("mom"); S.month=""; _stSave("mom",S); _momTick(true); } }}),
               e(VxCtPanel,{T:T,LANG:LANG,ui:ctUi,cfg:ctCfg,onCfg:_setCt,onEval:()=>_ctEval(true)}),
               e(VxAlpPanel,{T:T,LANG:LANG}),
               e(VxNetCheck,{T:T,LANG:LANG}),
@@ -22158,22 +22167,18 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
                     e("div",{style:{fontSize:"12px",color:T.gray2,fontFamily:"monospace",marginTop:"6px"}},t("vx_sec_usonly")),
                   e(VxTip,{T:T,txt:t("vx_mkt_note")})),
                 e("div",{style:{marginTop:"10px",padding:"10px",border:`1.5px solid ${manPlan?T.green:T.border}`,borderRadius:"10px"}},
-                  e("label",{style:{display:"flex",alignItems:"center",gap:"8px",cursor:"pointer",fontSize:"13.4px",fontFamily:"monospace",fontWeight:"900",color:manPlan?T.green:T.gray1}},
-                    e("input",{type:"checkbox",checked:manPlan,style:{width:"18px",height:"18px",accentColor:T.green},onChange:(ev)=>{ const v=ev.target.checked; setManPlanS(v); try{ localStorage.setItem("qe_vx_manplan",v?"1":"0"); }catch(x){} }}),
-                    e("span",null,t("vx_manplan_title"))),
+e(QSwitch,{T:T,LANG:LANG,testid:"vx-manplan",on:!!manPlan,label:t("vx_manplan_title"),onClick:()=>{ const v=!manPlan; setManPlanS(v); try{ localStorage.setItem("qe_vx_manplan",v?"1":"0"); }catch(x){} }}),
                   e(VxTip,{T:T,txt:t("vx_manplan_note")})),
                 e("div",{style:{marginTop:"10px",padding:"10px",border:`1.5px solid ${T.border}`,borderRadius:"10px"}},
                   e("div",{style:{fontSize:"13.4px",color:T.gray1,fontFamily:"monospace",fontWeight:"900",marginBottom:"6px"}},"🔎 "+t("vx_src_title")),
-                  [["app",srcApp,t("vx_src_app")],["web",srcWeb,t("vx_src_web")]].map(([k,on,lbl])=>e("label",{key:k,style:{display:"flex",alignItems:"center",gap:"8px",padding:"6px 4px",cursor:"pointer",fontSize:"12.8px",fontFamily:"monospace",color:on?T.cyan:T.gray1,fontWeight:on?"800":"600"}},
-                    e("input",{type:"checkbox",checked:on,style:{width:"18px",height:"18px",accentColor:T.cyan},onChange:(ev)=>{ const v=ev.target.checked; const other=k==="app"?srcWeb:srcApp; if(!v&&!other) return;   // at least one source stays on
+                  [["app",srcApp,t("vx_src_app")],["web",srcWeb,t("vx_src_web")]].map(([k,on,lbl])=>e("div",{key:k,style:{padding:"4px 0"}},e(QSwitch,{T:T,LANG:LANG,testid:"vx-src-"+k,on:!!on,label:lbl,onClick:()=>{ const v=!on; const other=k==="app"?srcWeb:srcApp; if(!v&&!other) return;   // at least one source stays on
                       if(k==="app"){ setSrcAppS(v); try{ localStorage.setItem("qe_vx_src_app",v?"1":"0"); }catch(x){} } else { setSrcWebS(v); try{ localStorage.setItem("qe_vx_src_web",v?"1":"0"); }catch(x){} }
-                      try{ vxCandRef.current={ts:0,list:[],via:"none"}; }catch(x){} }}),
-                    e("span",null,lbl))),
+                      try{ vxCandRef.current={ts:0,list:[],via:"none"}; }catch(x){} }}))),
                   e(VxTip,{T:T,txt:t("vx_src_note")})),
                 e("div",{style:{marginTop:"10px",padding:"10px",border:`1.5px solid ${freeOn?T.green:T.border}`,borderRadius:"10px",background:freeOn?`${T.green}0d`:"transparent"}},
                   e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
                     e("div",{style:{fontSize:"14.1px",color:T.green,fontFamily:"monospace",fontWeight:"900"}},t("scalp_free_title")),
-                    e("button",{onClick:()=>{ const v=!freeOn; setFreeOnS(v); try{ localStorage.setItem("qe_vx_free",v?"1":"0"); }catch(x){} },style:{background:freeOn?`${T.green}22`:T.bg2,border:`1.5px solid ${freeOn?T.green:T.border}`,color:freeOn?T.green:T.gray1,padding:"4px 12px",borderRadius:"8px",fontSize:"12.8px",fontFamily:"monospace",fontWeight:"800",cursor:"pointer"}},freeOn?"ON":"OFF")),
+                    e(QSwitch,{T:T,LANG:LANG,testid:"vx-free",on:!!freeOn,onClick:()=>{ const v=!freeOn; setFreeOnS(v); try{ localStorage.setItem("qe_vx_free",v?"1":"0"); }catch(x){} }})),
                   e(VxTip,{T:T,txt:t("scalp_free_note")})),
                 e("div",{style:{marginTop:"10px",padding:"10px",border:`1.5px solid ${vxSup&&vxSup.findings.some(f=>f.sev==="crit")?T.red:T.gold}`,borderRadius:"10px"}},
                   e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"4px"}},
@@ -22191,7 +22196,7 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
                 e("div",{style:{marginTop:"10px",padding:"10px",border:`1.5px solid ${vxCtl?(vxCtl.mode==="DEFENSE"?T.red:vxCtl.mode==="ATTACK"?T.green:T.cyan):T.border}`,borderRadius:"10px"}},
                   e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
                     e("div",{style:{fontSize:"14.1px",color:T.cyan,fontFamily:"monospace",fontWeight:"900"}},t("ctl_title")+(vxCtl?" · "+vxCtl.mode:" · off")),
-                    e("button",{onClick:()=>{ let on=true; try{ on=localStorage.getItem("qe_ctl")!=="0"; localStorage.setItem("qe_ctl",on?"0":"1"); }catch(x){} if(on){ window.__ctl=null; setVxCtl(null); } else { try{ _ctlRun(_acctNow()||vxAcct,_loadAi(),{}); }catch(x){} } },style:{background:T.bg2,border:`1.5px solid ${T.border}`,color:vxCtl?T.green:T.gray2,padding:"4px 10px",borderRadius:"7px",fontSize:"12.8px",fontFamily:"monospace",fontWeight:"800",cursor:"pointer"}},vxCtl?"ON":"OFF")),
+                    e(QSwitch,{T:T,LANG:LANG,testid:"vx-ctl",on:!!vxCtl,onClick:()=>{ let on=true; try{ on=localStorage.getItem("qe_ctl")!=="0"; localStorage.setItem("qe_ctl",on?"0":"1"); }catch(x){} if(on){ window.__ctl=null; setVxCtl(null); } else { try{ _ctlRun(_acctNow()||vxAcct,_loadAi(),{}); }catch(x){} } }})),
                   vxCtl?e("div",{style:{fontSize:"12.2px",color:T.text,fontFamily:"monospace",lineHeight:1.6,marginTop:"6px",whiteSpace:"pre-line"}},
                     "heat "+vxCtl.heat+"% / "+vxCtl.heatCap+"%  ·  long "+vxCtl.longPct+"%  short "+vxCtl.shortPct+"%  ·  day "+vxCtl.dayDD+"%\nsize ×"+vxCtl.sizeMult+"  ·  SPY "+(vxCtl.mk>0?"▲":vxCtl.mk<0?"▼":"–")+"\nswing "+vxCtl.swing.n+" PF "+vxCtl.swing.pf+" t "+vxCtl.swing.t+" Σ"+vxCtl.swing.sum+"\nDD "+vxCtl.ddH+"% ×"+vxCtl.doc.dd+"  ·  σSPY "+(vxCtl.doc.sig!=null?Math.round(vxCtl.doc.sig*100)+"%":"–")+" ×"+vxCtl.doc.vol+"  ·  "+vxCtl.doc.reg+(vxCtl.doc.er!=null?" ER "+vxCtl.doc.er:"")+"  ·  β-exp "+(vxCtl.netBeta!=null?vxCtl.netBeta+"%":"–")+"  ·  session ×"+vxCtl.doc.ph+(vxCtl.doc.phTag?" ("+vxCtl.doc.phTag+")":"")+(vxCtl.stale?"\n⏳ "+vxCtl.stale+" (hold, no loss-by-clock)":"")+(vxCtl.why?"\n"+vxCtl.why:"")):null,
                   e(VxTip,{T:T,txt:t("ctl_note")})),
@@ -22204,7 +22209,7 @@ input:focus{box-shadow:0 0 0 2px ${T.green}33}
                     e("input",{value:dgTk,onChange:ev=>setDgTk(ev.target.value.toUpperCase()),placeholder:"AAPL",style:{width:"64px",background:T.bg2,border:`1px solid ${T.border}`,color:T.text,borderRadius:"6px",padding:"5px",fontSize:"12.8px",fontFamily:"monospace"}}),
                     e("select",{value:dgKind,onChange:ev=>setDgKind(ev.target.value),style:{background:T.bg2,border:`1px solid ${T.border}`,color:T.text,borderRadius:"6px",padding:"5px",fontSize:"12.8px",fontFamily:"monospace"}},["above","below","move","vwap_up","vwap_dn","rvol"].map(k=>e("option",{key:k,value:k},t("dog_k_"+k)))),
                     e("input",{value:dgVal,onChange:ev=>setDgVal(ev.target.value),placeholder:"0",inputMode:"decimal",style:{width:"56px",background:T.bg2,border:`1px solid ${T.border}`,color:T.text,borderRadius:"6px",padding:"5px",fontSize:"12.8px",fontFamily:"monospace"}}),
-                    e("label",{style:{fontSize:"12.2px",color:T.gray2,fontFamily:"monospace",display:"flex",alignItems:"center",gap:"3px"}},e("input",{type:"checkbox",checked:dgEntry,onChange:ev=>setDgEntry(ev.target.checked)}),t("dog_entry")),
+                    e(QSwitch,{T:T,LANG:LANG,testid:"dog-entry",on:!!dgEntry,label:t("dog_entry"),onClick:()=>setDgEntry(!dgEntry),style:{fontSize:"11px"}}),
                     e("button",{onClick:()=>{ const v=parseFloat(String(dgVal).replace(",",".")); if(!dgTk.trim()) return; if((dgKind==="above"||dgKind==="below"||dgKind==="move"||dgKind==="rvol")&&!(v>0)) return; let kd=dgKind, nt0; if((kd==="above"||kd==="below")){ const tk1=dgTk.trim().toUpperCase(), px1=livePx(tk1), ps=(vxAcct.positions||[]).find(q=>q.ticker===tk1);
                       if(px1>0&&Math.abs(v-px1)/px1>0.0005){ const up=v>px1; kd=up?"above":"below"; let w;
                         if(ps){ const sh=ps.qty<0; w=t((up!==sh)?"dog_w_tp":"dog_w_sl"); nt0=w; } else w=t(up?"dog_w_up":"dog_w_dn");
