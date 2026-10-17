@@ -6,8 +6,16 @@
   // Custom domains are attached automatically on deploy (zone must be in this Cloudflare account).
   "routes": [
     { "pattern": "futuretrainingnow.com", "custom_domain": true },
-    { "pattern": "relay.futuretrainingnow.com", "custom_domain": true }
+    { "pattern": "relay.futuretrainingnow.com", "custom_domain": true },
+    { "pattern": "engine.futuretrainingnow.com", "custom_domain": true }
   ],
+  // QuantView engine: the phone app's engine running 24/7 in a container (Workers Paid). Europe only (Binance refuses US IPs).
+  "containers": [
+    { "class_name": "QVEngine", "image": "./engine/Dockerfile", "instance_type": "basic", "max_instances": 1,
+      "constraints": { "regions": ["WEUR", "EEUR"] } }
+  ],
+  "durable_objects": { "bindings": [{ "name": "QV_ENGINE", "class_name": "QVEngine" }] },
+  "exports": { "QVEngine": { "type": "durable-object", "storage": "sqlite" } },
   // Invitations (id + owner label + expiry + counter only). Secret ADMIN_KEY is set in the dashboard, never in git.
   "kv_namespaces": [{ "binding": "INVITES", "id": "75f5bb5ee1f6463bb20419f169e3a553" }],
   "assets": {

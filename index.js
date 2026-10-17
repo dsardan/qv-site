@@ -1,4 +1,6 @@
 import { inviteApi, joinPage, hasAccess, closedPage } from "./invite.js";
+import { QVEngine } from "./engine/do.js";
+export { QVEngine };   // QuantView 24/7 engine (Cloudflare Containers) — engine.<domain>
 // QuantView CORS relay — Cloudflare Worker (v2).
 //
 // Why this exists: the app runs from file:// inside a WebView, so every source that does
@@ -71,6 +73,9 @@ function withCors(body, init) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // QuantView engine (24/7 trading engine in a container): engine.<domain>/* — token-protected, see engine/do.js
+    if (url.hostname.startsWith("engine.") && env.QV_ENGINE) return env.QV_ENGINE.getByName("main").fetch(request);
 
     // The same Worker serves the website (./site, via the ASSETS binding) on every host that is not the relay:
     //   relay.<domain>, any ?url= call and the /ws/* routes stay relay-only; everything else is a static file.
