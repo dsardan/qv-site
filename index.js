@@ -19,7 +19,8 @@ import { inviteApi, joinPage, hasAccess, closedPage } from "./invite.js";
 //   • per-host cache TTL (quotes must not be cached for a minute) and per-host headers.
 // Usage:  GET  https://<relay>/?url=<encoded https url>      GET /health      WS /ws/binance
 
-const VERSION = "2.3";   // 2.2: invitation-only /app/ + owner invite API   // 2.1: also serves the static site (./site) on non-relay hosts
+const VERSION = "2.4";   // 2.4: + reddit/stocktwits/simfin/maya hosts the app already calls (were 403), explicit Authorization in CORS preflight
+//   // 2.2: invitation-only /app/ + owner invite API   // 2.1: also serves the static site (./site) on non-relay hosts
 
 // host → policy.  ttl: edge cache seconds (0 = never cache).  ref: Referer to send.  auth: forward Authorization.
 const POLICY = {
@@ -46,6 +47,11 @@ const POLICY = {
   "finnhub.io":                { ttl: 120 },
   "financialmodelingprep.com": { ttl: 300 },
   "reportapi.eastmoney.com":   { ttl: 600, ref: "https://data.eastmoney.com/" },
+  // --- sentiment / fundamentals / Israel funds the app calls through the relay (v2.4; they answered 403 «host not allowed») ---
+  "www.reddit.com":            { ttl: 120 },
+  "api.stocktwits.com":        { ttl: 60 },
+  "backend.simfin.com":        { ttl: 600, auth: true },   // free public key header «api-key free»
+  "maya.tase.co.il":           { ttl: 300, ref: "https://maya.tase.co.il/" },
   "invest-public-api.tinkoff.ru": { ttl: 0, auth: true },
   "invest-public-api.tbank.ru":   { ttl: 0, auth: true },
 };
@@ -62,7 +68,7 @@ function withCors(body, init) {
   const h = new Headers((init && init.headers) || {});
   h.set("Access-Control-Allow-Origin", "*");
   h.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  h.set("Access-Control-Allow-Headers", "*");
+  h.set("Access-Control-Allow-Headers", "authorization,content-type,accept");   // «*» does not cover Authorization in browsers
   h.set("Access-Control-Max-Age", "86400");
   h.delete("set-cookie");             // never relay upstream cookies back to the client
   return new Response(body, { ...(init || {}), headers: h });
