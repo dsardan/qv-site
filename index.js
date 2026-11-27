@@ -19,7 +19,7 @@ import { inviteApi, joinPage, hasAccess, closedPage } from "./invite.js";
 //   • per-host cache TTL (quotes must not be cached for a minute) and per-host headers.
 // Usage:  GET  https://<relay>/?url=<encoded https url>      GET /health      WS /ws/binance
 
-const VERSION = "2.4";   // 2.4: + reddit/stocktwits/simfin/maya hosts the app already calls (were 403), explicit Authorization in CORS preflight
+const VERSION = "2.5";   // 2.5: upstream timeout 8 s → 5 s (the app waits 9.5 s, so the relay answers 502 first instead of the app hanging up); 2.4: + reddit/stocktwits/simfin/maya hosts the app already calls (were 403), explicit Authorization in CORS preflight
 //   // 2.2: invitation-only /app/ + owner invite API   // 2.1: also serves the static site (./site) on non-relay hosts
 
 // host → policy.  ttl: edge cache seconds (0 = never cache).  ref: Referer to send.  auth: forward Authorization.
@@ -61,7 +61,7 @@ const WS_ROUTES = {
   "/ws/binance": "https://data-stream.binance.vision/ws",
 };
 
-const UPSTREAM_TIMEOUT_MS = 8000;
+const UPSTREAM_TIMEOUT_MS = 5000;   // 2.5: below the app's 9.5 s wait for this relay (QuantView 15.12.879)
 const UA = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120 Safari/537.36";
 
 function withCors(body, init) {
